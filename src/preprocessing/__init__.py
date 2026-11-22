@@ -4,6 +4,7 @@ from src.preprocessing.image_cleaner import DullRazorCleaner, GrayWorldColorCons
 from src.preprocessing.augmentations import DermaAugmentationPipeline
 from src.preprocessing.tabular_preprocessor import ClinicalTabularPreprocessor
 from src.preprocessing.integrity_checker import DatasetIntegrityChecker
+from src.preprocessing.image_transforms import ImageResizer, ImageNormalizer
 
 __all__ = [
     "DullRazorCleaner",
@@ -11,4 +12,6 @@ __all__ = [
     "DermaAugmentationPipeline",
     "ClinicalTabularPreprocessor",
     "DatasetIntegrityChecker",
+    "ImageResizer",
+    "ImageNormalizer",
 ]
