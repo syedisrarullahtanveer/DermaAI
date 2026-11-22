@@ -1,0 +1,90 @@
+# Global Project Configuration for DermaAI
+project:
+  name: "DermaAI"
+  version: "1.0.0"
+  description: "Intelligent Skin Disease Detection using Deep Learning, Attention Mechanisms, and Explainable AI"
+  seed: 42
+
+paths:
+  dataset_root: "dataset"
+  raw_data_dir: "dataset/raw"
+  processed_data_dir: "dataset/processed"
+  metadata_dir: "dataset/metadata"
+  metadata_csv: "dataset/metadata/HAM10000_metadata.csv"
+  checkpoints_dir: "models/saved_models"
+  logs_dir: "logs"
+  reports_dir: "reports"
+
+data:
+  image_size: [224, 224]
+  channels: 3
+  num_classes: 7
+  classes:
+    - code: "akiec"
+      name: "Actinic Keratoses and Intraepithelial Carcinoma"
+      risk_level: "High"
+    - code: "bcc"
+      name: "Basal Cell Carcinoma"
+      risk_level: "High"
+    - code: "bkl"
+      name: "Benign Keratosis-like Lesions"
+      risk_level: "Low"
+    - code: "df"
+      name: "Dermatofibroma"
+      risk_level: "Low"
+    - code: "mel"
+      name: "Melanoma"
+      risk_level: "Critical"
+    - code: "nv"
+      name: "Melanocytic Nevi"
+      risk_level: "Low"
+    - code: "vasc"
+      name: "Vascular Lesions"
+      risk_level: "Low"
+  splits:
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+    stratify_by: "dx"
+    patient_grouping_col: "lesion_id"
+
+preprocessing:
+  dull_razor:
+    enabled: true
+    filter_kernel_size: 9
+    threshold: 10
+    inpaint_radius: 5
+  color_constancy:
+    enabled: true
+    method: "gray_world"
+  normalization:
+    method: "standard" # Options: "standard" ([0, 1]), "imagenet" (mean & std)
+
+training:
+  batch_size: 32
+  epochs: 50
+  learning_rate: 0.0001
+  optimizer: "adamw"
+  weight_decay: 0.0001
+  loss: "focal_loss" # Options: "categorical_crossentropy", "focal_loss", "weighted_ce"
+  focal_loss:
+    gamma: 2.0
+    alpha: 0.25
+  early_stopping:
+    patience: 10
+    monitor: "val_loss"
+    mode: "min"
+  reduce_lr:
+    factor: 0.2
+    patience: 5
+    min_lr: 0.000001
+    monitor: "val_loss"
+    mode: "min"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
