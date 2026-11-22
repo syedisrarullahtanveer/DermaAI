@@ -56,6 +56,11 @@ dataset/raw/*
 !dataset/raw/.gitkeep
 dataset/processed/*
 !dataset/processed/.gitkeep
+dataset/metadata/*.csv
+!dataset/metadata/.gitkeep
+dataset/splits/*.csv
+!dataset/splits/.gitkeep
+reports/*.png
 *.zip
 *.tar.gz
 *.tar
