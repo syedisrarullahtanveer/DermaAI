@@ -1,0 +1,41 @@
+{
+  "model_name": "resnet50",
+  "description": "ResNet50 pretrained on ImageNet. Stage-1: classification head only (5 epochs). Stage-2: unfreeze top-30 layers and fine-tune at 10x lower LR.\n",
+  "epochs_run": 5,
+  "epochs_requested": 5,
+  "train_samples": 45,
+  "val_samples": 12,
+  "batch_size": 8,
+  "train_loss": [
+    0.4832893908023834,
+    0.4841286838054657,
+    0.48412853479385376,
+    0.49103817343711853,
+    0.4248257875442505
+  ],
+  "train_accuracy": [
+    0.13333334028720856,
+    0.13333334028720856,
+    0.2888889014720917,
+    0.24444444477558136,
+    0.20000000298023224
+  ],
+  "val_loss": [
+    2.9462671279907227,
+    2.82499623298645,
+    2.335247278213501,
+    2.4910104274749756,
+    2.440708875656128
+  ],
+  "val_accuracy": [
+    0.25,
+    0.0,
+    0.25,
+    0.25,
+    0.25
+  ],
+  "best_val_loss": 2.335247278213501,
+  "best_val_accuracy": 0.25,
+  "duration_seconds": 46.87,
+  "checkpoint_path": "C:\\Users\\syedisrar\\.gemini\\antigravity\\scratch\\DermaAI\\models\\checkpoints\\resnet50_best.keras"
+}
