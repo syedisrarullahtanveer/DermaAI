@@ -10,8 +10,8 @@ from src.preprocessing.integrity_checker import DatasetIntegrityChecker
 
 def test_integrity_checker_missing_and_orphan(tmp_path):
     """Verify integrity checker accurately identifies missing and orphan images."""
-    img_dir = tmp_path / "images"
-    img_dir.mkdir()
+    img_dir = tmp_path / "images_missing_orphan"
+    img_dir.mkdir(parents=True, exist_ok=True)
 
     # Create 2 valid images on disk
     img1_path = img_dir / "ISIC_0001.jpg"
@@ -43,8 +43,8 @@ def test_integrity_checker_missing_and_orphan(tmp_path):
 
 def test_integrity_checker_detects_corrupted_file(tmp_path):
     """Verify corruption detection identifies zero-byte and truncated image files."""
-    img_dir = tmp_path / "images"
-    img_dir.mkdir()
+    img_dir = tmp_path / "images_corrupted"
+    img_dir.mkdir(parents=True, exist_ok=True)
 
     # Create 1 valid image
     valid_path = img_dir / "valid_001.jpg"
