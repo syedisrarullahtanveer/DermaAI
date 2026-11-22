@@ -1,0 +1,41 @@
+{
+  "model_name": "mobilenet_v2",
+  "description": "MobileNetV2 pretrained on ImageNet. Lightweight depthwise-separable convolutions. Suitable for real-time inference on constrained hardware.\n",
+  "epochs_run": 5,
+  "epochs_requested": 5,
+  "train_samples": 45,
+  "val_samples": 12,
+  "batch_size": 8,
+  "train_loss": [
+    0.3589087724685669,
+    0.3573271930217743,
+    0.3570551872253418,
+    0.35709458589553833,
+    0.3569040894508362
+  ],
+  "train_accuracy": [
+    0.15555556118488312,
+    0.15555556118488312,
+    0.15555556118488312,
+    0.15555556118488312,
+    0.15555556118488312
+  ],
+  "val_loss": [
+    0.3567381799221039,
+    0.3565141260623932,
+    0.3564319610595703,
+    0.3563660681247711,
+    0.356344074010849
+  ],
+  "val_accuracy": [
+    0.25,
+    0.25,
+    0.25,
+    0.25,
+    0.25
+  ],
+  "best_val_loss": 0.356344074010849,
+  "best_val_accuracy": 0.25,
+  "duration_seconds": 17.28,
+  "checkpoint_path": "C:\\Users\\syedisrar\\.gemini\\antigravity\\scratch\\DermaAI\\models\\checkpoints\\mobilenet_v2_best.keras"
+}
