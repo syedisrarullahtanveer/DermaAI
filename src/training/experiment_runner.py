@@ -106,8 +106,11 @@ def _build_dataset(
         train_df = pd.read_csv(train_csv)
         val_df = pd.read_csv(val_csv)
 
+        # Support both 'label' and 'dx' (HAM10000-style) column names
+        label_col = "label" if "label" in train_df.columns else "dx"
+
         # Map string label → integer index
-        all_labels = sorted(train_df["label"].unique().tolist())
+        all_labels = sorted(train_df[label_col].unique().tolist())
         label2idx = {l: i for i, l in enumerate(all_labels)}
 
         def _load_df(df, augment=False):
@@ -117,7 +120,7 @@ def _build_dataset(
                 img_path = img_dir / f"{row['image_id']}.jpg"
                 if img_path.exists():
                     paths.append(str(img_path))
-                    labels.append(label2idx.get(row["label"], 0))
+                    labels.append(label2idx.get(row[label_col], 0))
 
             if not paths:
                 return None, 0
