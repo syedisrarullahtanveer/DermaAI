@@ -52,19 +52,25 @@ class PatientAwareDataSplitter:
 
         # Step 2: Split unique lesions into Train vs Temp (Val + Test)
         temp_ratio = val_ratio + test_ratio
+        lesion_counts = lesion_summary[self.label_col].value_counts()
+        can_stratify_main = (lesion_counts.min() >= 2)
+
         train_lesions, temp_lesions = train_test_split(
             lesion_summary,
             test_size=temp_ratio,
-            stratify=lesion_summary[self.label_col],
+            stratify=lesion_summary[self.label_col] if can_stratify_main else None,
             random_state=self.seed,
         )
 
         # Step 3: Split Temp into Validation vs Test
         val_sub_ratio = val_ratio / temp_ratio
+        temp_counts = temp_lesions[self.label_col].value_counts()
+        can_stratify_temp = (temp_counts.min() >= 2)
+
         val_lesions, test_lesions = train_test_split(
             temp_lesions,
             test_size=(1.0 - val_sub_ratio),
-            stratify=temp_lesions[self.label_col],
+            stratify=temp_lesions[self.label_col] if can_stratify_temp else None,
             random_state=self.seed,
         )
 

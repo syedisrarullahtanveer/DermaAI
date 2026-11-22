@@ -1,7 +1,12 @@
 """CLI Script to Generate Complete Dataset Visualization and Markdown Audit Report."""
 
 import argparse
+import sys
 from pathlib import Path
+
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import pandas as pd
 
 from src.config import load_config
