@@ -1,0 +1,81 @@
+# Model Architecture Configurations for DermaAI
+
+baseline_cnn:
+  name: "DermaCNN_Baseline"
+  conv_blocks:
+    - filters: 32
+      kernel_size: [3, 3]
+      stride: 1
+      activation: "relu"
+      pool_size: [2, 2]
+      dropout: 0.1
+    - filters: 64
+      kernel_size: [3, 3]
+      stride: 1
+      activation: "relu"
+      pool_size: [2, 2]
+      dropout: 0.2
+    - filters: 128
+      kernel_size: [3, 3]
+      stride: 1
+      activation: "relu"
+      pool_size: [2, 2]
+      dropout: 0.25
+    - filters: 256
+      kernel_size: [3, 3]
+      stride: 1
+      activation: "relu"
+      pool_size: [2, 2]
+      dropout: 0.3
+  dense_units: [256, 128]
+  dense_dropout: 0.4
+  use_batch_norm: true
+
+transfer_learning:
+  resnet50:
+    name: "ResNet50_Derma"
+    weights: "imagenet"
+    include_top: false
+    pooling: "avg"
+    fine_tune_layers: 25 # Unfreeze top 25 layers during stage 2 fine-tuning
+    dropout: 0.3
+  efficientnet_b0:
+    name: "EfficientNetB0_Derma"
+    weights: "imagenet"
+    include_top: false
+    pooling: "avg"
+    fine_tune_layers: 30
+    dropout: 0.3
+  mobilenet_v2:
+    name: "MobileNetV2_Derma"
+    weights: "imagenet"
+    include_top: false
+    pooling: "avg"
+    fine_tune_layers: 20
+    dropout: 0.25
+
+attention_network:
+  name: "DermaAttention_CBAM"
+  backbone: "efficientnet_b0"
+  cbam:
+    reduction_ratio: 16
+    spatial_kernel_size: 7
+  squeeze_excitation:
+    ratio: 16
+  dense_units: [256]
+  dropout: 0.35
+
+multimodal:
+  name: "DermaMultimodal_Fusion"
+  image_backbone: "efficientnet_b0"
+  image_feature_dim: 256
+  metadata_features:
+    numerical: ["age"]
+    categorical: ["sex", "localization"]
+  tabular_mlp:
+    dense_units: [64, 32]
+    dropout: 0.2
+    activation: "relu"
+  fusion_type: "gated" # Options: "concatenation", "gated", "cross_attention"
+  combined_dense_units: [128, 64]
+  final_dropout: 0.3
