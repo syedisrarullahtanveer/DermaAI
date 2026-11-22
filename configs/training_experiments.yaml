@@ -1,0 +1,106 @@
+# DermaAI Training Experiments Registry
+# ---------------------------------------------------------------------------
+# Defines hyperparameters for every experiment run via scripts/run_experiments.py
+# All experiments share the same dataset splits for fair comparison.
+# ---------------------------------------------------------------------------
+
+common:
+  seed: 42
+  image_size: [224, 224]
+  num_classes: 7
+  class_names:
+    - akiec   # Actinic keratoses / Bowen's disease
+    - bcc     # Basal cell carcinoma
+    - bkl     # Benign keratosis-like lesions
+    - df      # Dermatofibroma
+    - mel     # Melanoma
+    - nv      # Melanocytic nevi
+    - vasc    # Vascular lesions
+  loss: focal_loss        # or categorical_crossentropy
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  metrics: [accuracy]
+  batch_size: 8           # small – synthetic dataset has only 70 samples
+  epochs: 5               # quick run to validate pipeline; increase for real data
+  optimizer: adam
+  weight_decay: 1.0e-4
+  checkpoint_dir: models/checkpoints
+  results_dir: reports/experiments
+  plots_dir: reports/plots/training
+
+learning_rate_schedulers:
+  cosine_annealing:
+    type: cosine_annealing
+    initial_lr: 1.0e-3
+    t_max: 5          # equals epochs for one full cycle
+    eta_min: 1.0e-6
+  warmup_cosine:
+    type: warmup_cosine
+    initial_lr: 1.0e-4
+    warmup_epochs: 1
+    total_epochs: 5
+    eta_min: 1.0e-7
+  step_decay:
+    type: step_decay
+    initial_lr: 1.0e-3
+    drop_factor: 0.5
+    drop_every_n_epochs: 2
+
+experiments:
+  baseline_cnn:
+    model: baseline_cnn
+    description: >
+      Custom 4-block CNN with BatchNorm and Dropout.
+      No pretrained weights – trained from scratch as a performance floor.
+    lr: 1.0e-3
+    lr_scheduler: cosine_annealing
+    unfreeze_at_epoch: null   # fully trainable from epoch 1
+    dropout: 0.4
+    l2_reg: 1.0e-4
+    early_stopping_patience: 10
+    reduce_lr_patience: 5
+
+  resnet50:
+    model: resnet50
+    description: >
+      ResNet50 pretrained on ImageNet.
+      Stage-1: classification head only (5 epochs).
+      Stage-2: unfreeze top-30 layers and fine-tune at 10x lower LR.
+    lr_stage1: 1.0e-3
+    lr_stage2: 1.0e-4
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    unfreeze_top_n: 30
+    stage2_epochs: 0        # disabled on synthetic data (keep short)
+    dropout: 0.4
+    early_stopping_patience: 10
+
+  efficientnet_b0:
+    model: efficientnet_b0
+    description: >
+      EfficientNetB0 pretrained on ImageNet.
+      Built-in rescaling layer normalises inputs in [0,255].
+      Fine-tune strategy matches ResNet50 two-stage approach.
+    lr_stage1: 1.0e-3
+    lr_stage2: 5.0e-5
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    unfreeze_top_n: 20
+    stage2_epochs: 0
+    dropout: 0.3
+    early_stopping_patience: 10
+
+  mobilenet_v2:
+    model: mobilenet_v2
+    description: >
+      MobileNetV2 pretrained on ImageNet.
+      Lightweight depthwise-separable convolutions.
+      Suitable for real-time inference on constrained hardware.
+    lr_stage1: 1.0e-3
+    lr_stage2: 5.0e-5
+    lr_scheduler: step_decay
+    freeze_backbone: true
+    unfreeze_top_n: 20
+    stage2_epochs: 0
+    dropout: 0.3
+    early_stopping_patience: 10
