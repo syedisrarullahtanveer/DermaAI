@@ -5,7 +5,7 @@ accuracy and compute efficiency via compound scaling. Its built-in rescaling
 layer handles pixel normalization, so no manual preprocessing is needed.
 """
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import EfficientNetB0
@@ -19,6 +19,8 @@ def build_efficientnet(
     dense_units: List[int] = None,
     dropout_rate: float = 0.3,
     name: str = "EfficientNetB0_Derma",
+    freeze_backbone: Optional[bool] = None,
+    **kwargs,
 ) -> tf.keras.Model:
     """Build EfficientNetB0-based transfer learning model for dermoscopy classification.
 
@@ -37,16 +39,25 @@ def build_efficientnet(
     Returns:
         tf.keras.Model: EfficientNetB0 model ready for compilation.
     """
+    if freeze_backbone is not None:
+        freeze_base = freeze_backbone
     if dense_units is None:
         dense_units = [256]
 
     # EfficientNetB0 backbone (no top)
-    base_model = EfficientNetB0(
-        include_top=False,
-        weights=weights,
-        input_shape=input_shape,
-        include_preprocessing=True,  # built-in rescaling: [0,255] → [0,1]
-    )
+    try:
+        base_model = EfficientNetB0(
+            include_top=False,
+            weights=weights,
+            input_shape=input_shape,
+        )
+    except Exception as exc:
+        print(f"[EfficientNetB0] Could not load weights '{weights}' ({exc}). Initializing with weights=None.")
+        base_model = EfficientNetB0(
+            include_top=False,
+            weights=None,
+            input_shape=input_shape,
+        )
     base_model.trainable = not freeze_base
 
     inputs = layers.Input(shape=input_shape, name="image_input")
@@ -108,3 +119,8 @@ def unfreeze_efficientnet_top(model: tf.keras.Model, num_layers: int = 30) -> No
 
     n_trainable = sum(1 for l in base_model.layers if l.trainable)
     print(f"[EfficientNetB0] Unfrozen {n_trainable}/{total_layers} backbone layers for fine-tuning.")
+
+
+# Convenient alias matching standard naming conventions
+build_efficientnet_b0 = build_efficientnet
+

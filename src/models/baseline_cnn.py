@@ -11,6 +11,7 @@ def build_baseline_cnn(
     conv_filters: List[int] = None,
     dense_units: List[int] = None,
     dropout_rate: float = 0.3,
+    l2_reg: float = 0.0,
     use_batch_norm: bool = True,
     name: str = "DermaCNN_Baseline",
 ) -> tf.keras.Model:
@@ -22,6 +23,7 @@ def build_baseline_cnn(
         conv_filters: List of filter counts for progressive convolutional stages.
         dense_units: List of unit counts for dense classification head.
         dropout_rate: Dropout rate for regularization.
+        l2_reg: L2 kernel regularization factor.
         use_batch_norm: Whether to apply BatchNormalization after convolutions.
         name: Model name.
 
@@ -32,6 +34,8 @@ def build_baseline_cnn(
         conv_filters = [32, 64, 128, 256]
     if dense_units is None:
         dense_units = [256, 128]
+
+    regularizer = tf.keras.regularizers.l2(l2_reg) if l2_reg > 0 else None
 
     inputs = layers.Input(shape=input_shape, name="image_input")
     x = inputs
@@ -44,6 +48,7 @@ def build_baseline_cnn(
             kernel_size=(3, 3),
             padding="same",
             kernel_initializer="he_normal",
+            kernel_regularizer=regularizer,
             name=f"conv_stage_{i+1}_1",
         )(x)
         if use_batch_norm:
@@ -56,6 +61,7 @@ def build_baseline_cnn(
             kernel_size=(3, 3),
             padding="same",
             kernel_initializer="he_normal",
+            kernel_regularizer=regularizer,
             name=f"conv_stage_{i+1}_2",
         )(x)
         if use_batch_norm:

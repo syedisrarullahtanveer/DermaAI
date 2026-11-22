@@ -19,6 +19,8 @@ def build_resnet50(
     dense_units: List[int] = None,
     dropout_rate: float = 0.3,
     name: str = "ResNet50_Derma",
+    freeze_backbone: Optional[bool] = None,
+    **kwargs,
 ) -> tf.keras.Model:
     """Build ResNet50-based transfer learning model for dermoscopy classification.
 
@@ -34,16 +36,27 @@ def build_resnet50(
     Returns:
         tf.keras.Model: Configured ResNet50 model, ready for compilation.
     """
+    if freeze_backbone is not None:
+        freeze_base = freeze_backbone
     if dense_units is None:
         dense_units = [512, 256]
 
     # Base model: ResNet50 without top classification layers
-    base_model = ResNet50(
-        include_top=False,
-        weights=weights,
-        input_shape=input_shape,
-        pooling=None,
-    )
+    try:
+        base_model = ResNet50(
+            include_top=False,
+            weights=weights,
+            input_shape=input_shape,
+            pooling=None,
+        )
+    except Exception as exc:
+        print(f"[ResNet50] Could not load weights '{weights}' ({exc}). Initializing with weights=None.")
+        base_model = ResNet50(
+            include_top=False,
+            weights=None,
+            input_shape=input_shape,
+            pooling=None,
+        )
     base_model.trainable = not freeze_base
 
     inputs = layers.Input(shape=input_shape, name="image_input")

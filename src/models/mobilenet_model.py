@@ -5,7 +5,7 @@ making it well-suited for resource-constrained clinical deployment while
 still achieving competitive diagnostic accuracy via transfer learning.
 """
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import MobileNetV2
@@ -19,6 +19,8 @@ def build_mobilenet(
     dense_units: List[int] = None,
     dropout_rate: float = 0.25,
     name: str = "MobileNetV2_Derma",
+    freeze_backbone: Optional[bool] = None,
+    **kwargs,
 ) -> tf.keras.Model:
     """Build MobileNetV2-based transfer learning model for dermoscopy classification.
 
@@ -38,16 +40,27 @@ def build_mobilenet(
     Returns:
         tf.keras.Model: Configured MobileNetV2 model ready for compilation.
     """
+    if freeze_backbone is not None:
+        freeze_base = freeze_backbone
     if dense_units is None:
         dense_units = [256]
 
     # MobileNetV2 backbone
-    base_model = MobileNetV2(
-        include_top=False,
-        weights=weights,
-        input_shape=input_shape,
-        alpha=1.0,  # Width multiplier: 1.0 = full capacity
-    )
+    try:
+        base_model = MobileNetV2(
+            include_top=False,
+            weights=weights,
+            input_shape=input_shape,
+            alpha=1.0,  # Width multiplier: 1.0 = full capacity
+        )
+    except Exception as exc:
+        print(f"[MobileNetV2] Could not load weights '{weights}' ({exc}). Initializing with weights=None.")
+        base_model = MobileNetV2(
+            include_top=False,
+            weights=None,
+            input_shape=input_shape,
+            alpha=1.0,
+        )
     base_model.trainable = not freeze_base
 
     inputs = layers.Input(shape=input_shape, name="image_input")
@@ -109,3 +122,8 @@ def unfreeze_mobilenet_top(model: tf.keras.Model, num_layers: int = 20) -> None:
 
     n_trainable = sum(1 for l in base_model.layers if l.trainable)
     print(f"[MobileNetV2] Unfrozen {n_trainable}/{total_layers} backbone layers for fine-tuning.")
+
+
+# Convenient alias matching standard naming conventions
+build_mobilenet_v2 = build_mobilenet
+
