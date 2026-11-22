@@ -9,7 +9,7 @@ This document tracks all completed and planned commits across the 10 development
 | Phase | Description | Target Commits | Status | Completed Commits |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | Foundation, Infrastructure, Configuration & Project Scaffolding | Commits 1 – 35 | **Completed** | **35 / 35** (100%) |
-| **Phase 2** | Data Engineering, Preprocessing, DullRazor & Augmentation | Commits 36 – 85 | Planned | 0 / 50 (0%) |
+| **Phase 2** | Data Engineering, Preprocessing, DullRazor, Integrity & Augmentations | Commits 36 – 85 | **In Progress** | **17 / 50** (34%) |
 | **Phase 3** | Baseline CNN Architecture & Loss Formulation | Commits 86 – 125 | Planned | 0 / 40 (0%) |
 | **Phase 4** | Transfer Learning Suite (ResNet50, EfficientNet, MobileNet) | Commits 126 – 180 | Planned | 0 / 55 (0%) |
 | **Phase 5** | Advanced Hybrid Architecture with Attention Mechanisms (CBAM / SE) | Commits 181 – 225 | Planned | 0 / 45 (0%) |
@@ -58,3 +58,26 @@ This document tracks all completed and planned commits across the 10 development
 - [x] **Commit 033** - `test: implement unit tests for preprocessing, models, and FastAPI endpoints`
 - [x] **Commit 034** - `feat(scripts): implement environment verification, training and evaluation CLI utilities`
 - [x] **Commit 035** - `ci: configure GitHub Actions workflow for linting and test validation`
+
+---
+
+## Phase 2: Data Engineering, Preprocessing, Integrity & Augmentations (Commits 36 – 85)
+
+- [x] **Commit 036** - `docs(dataset): add public datasets registry and acquisition licensing guide`
+- [x] **Commit 037** - `feat(preprocessing): implement dataset integrity checker and corruption detection engine`
+- [x] **Commit 038** - `feat(data): implement dataset distribution and patient demographic analyzer`
+- [x] **Commit 039** - `feat(preprocessing): implement advanced image resizing, letterbox padding and normalization`
+- [x] **Commit 040** - `feat(preprocessing): implement comprehensive dermoscopy augmentations with CLAHE, CutMix and MixUp`
+- [x] **Commit 041** - `feat(preprocessing): implement class imbalance weighting and minority augmentation handler`
+- [x] **Commit 042** - `feat(data): implement patient-aware stratified splitter with zero leakage verification`
+- [x] **Commit 043** - `feat(evaluation): implement dataset visual reporter and clinical markdown audit generator`
+- [x] **Commit 044** - `chore: update gitignore to protect against committing dataset splits and report binaries`
+- [x] **Commit 045** - `feat(data): refine stratified splitter with dynamic minimum class population fallback`
+- [x] **Commit 046** - `feat(scripts): add synthetic clinical sample generator for offline testing and verification`
+- [x] **Commit 047** - `docs(reports): add sample dataset clinical distribution and demographic audit report`
+- [x] **Commit 048** - `test: isolate temporary directory structures in integrity checker unit tests`
+- [x] **Commit 049** - `test: refine test runner compatibility and hair width calibration for DullRazor filter`
+- [ ] **Commit 050** - `feat(data): implement online batch data generator with class-balanced sampling`
+- [ ] **Commit 051** - `feat(preprocessing): benchmark DullRazor execution latency and visual fidelity`
+- [ ] **Commit 052** - `feat(preprocessing): implement Shades of Gray and Max-RGB color constancy algorithms`
+- [ ] **Commit 053** - `feat(data): implement ISIC Archive API dataset synchronizer`
