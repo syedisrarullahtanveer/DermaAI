@@ -1,0 +1,41 @@
+{
+  "model_name": "efficientnet_b0",
+  "description": "EfficientNetB0 pretrained on ImageNet. Built-in rescaling layer normalises inputs in [0,255]. Fine-tune strategy matches ResNet50 two-stage approach.\n",
+  "epochs_run": 5,
+  "epochs_requested": 5,
+  "train_samples": 45,
+  "val_samples": 12,
+  "batch_size": 8,
+  "train_loss": [
+    0.3577862083911896,
+    0.35745367407798767,
+    0.35719799995422363,
+    0.35712113976478577,
+    0.3570650815963745
+  ],
+  "train_accuracy": [
+    0.02222222276031971,
+    0.13333334028720856,
+    0.15555556118488312,
+    0.04444444552063942,
+    0.1111111119389534
+  ],
+  "val_loss": [
+    0.3574548065662384,
+    0.3574070930480957,
+    0.357373982667923,
+    0.35735824704170227,
+    0.3573583662509918
+  ],
+  "val_accuracy": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "best_val_loss": 0.35735824704170227,
+  "best_val_accuracy": 0.0,
+  "duration_seconds": 52.51,
+  "checkpoint_path": "C:\\Users\\syedisrar\\.gemini\\antigravity\\scratch\\DermaAI\\models\\checkpoints\\efficientnet_b0_best.keras"
+}
