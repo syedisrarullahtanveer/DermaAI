@@ -11,7 +11,7 @@ from src.models.attention import (
     CBAM,
     SqueezeAndExcitation,
 )
-from src.models.hybrid_model import build_hybrid_attention_model
+from src.models.hybrid_model import build_hybrid_model, build_hybrid_attention_model
 from src.models.multimodal_model import build_multimodal_fusion_model
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     "SpatialAttention",
     "CBAM",
     "SqueezeAndExcitation",
+    "build_hybrid_model",
     "build_hybrid_attention_model",
     "build_multimodal_fusion_model",
 ]
