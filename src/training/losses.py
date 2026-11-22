@@ -60,6 +60,11 @@ class MultiClassFocalLoss(losses.Loss):
         return config
 
 
+# Convenient alias
+FocalLoss = MultiClassFocalLoss
+
+
+
 def compute_balanced_class_weights(class_counts: Dict[str, int]) -> Dict[int, float]:
     """Compute inverse frequency class weights to balance gradient updates during training.
 

@@ -341,14 +341,12 @@ class ExperimentRunner:
 
         # 4. Loss
         loss_name = self.common.get("loss", "categorical_crossentropy")
-        if loss_name == "focal_loss":
-            from src.training.losses import FocalLoss
-            loss_fn = FocalLoss(
-                alpha=self.common.get("focal_alpha", 0.25),
-                gamma=self.common.get("focal_gamma", 2.0),
-            )
-        else:
-            loss_fn = "categorical_crossentropy"
+        from src.training.losses import get_loss_function
+        loss_fn = get_loss_function(
+            loss_name=loss_name,
+            gamma=self.common.get("focal_gamma", 2.0),
+            alpha=self.common.get("focal_alpha", 0.25),
+        )
 
         model.compile(
             optimizer=optimizer,
@@ -374,17 +372,21 @@ class ExperimentRunner:
                 save_best_only=True,
                 verbose=0,
             ),
-            tf.keras.callbacks.ReduceLROnPlateau(
-                monitor="val_loss",
-                factor=0.5,
-                patience=exp_cfg.get("reduce_lr_patience", 3),
-                min_lr=1e-7,
-                verbose=1,
-            ),
             tf.keras.callbacks.CSVLogger(
                 str(self.results_dir / f"{model_name}_training_log.csv")
             ),
         ]
+        # Only add ReduceLROnPlateau if learning rate is a scalar, not a step-based schedule
+        if not isinstance(scheduler, tf.keras.optimizers.schedules.LearningRateSchedule):
+            callbacks.append(
+                tf.keras.callbacks.ReduceLROnPlateau(
+                    monitor="val_loss",
+                    factor=0.5,
+                    patience=exp_cfg.get("reduce_lr_patience", 3),
+                    min_lr=1e-7,
+                    verbose=1,
+                )
+            )
 
         # 6. Train
         print("[5/5] Training …")
