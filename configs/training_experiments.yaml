@@ -104,3 +104,87 @@ experiments:
     stage2_epochs: 0
     dropout: 0.3
     early_stopping_patience: 10
+
+  hybrid_cbam:
+    model: hybrid_cbam
+    description: >
+      Advanced Hybrid Architecture with EfficientNetB0 feature extraction
+      and dual-attention CBAM (Channel + Spatial Attention) with residual connection.
+    backbone: efficientnet_b0
+    attention_type: cbam
+    use_metadata: false
+    lr: 1.0e-3
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    dropout: 0.35
+    early_stopping_patience: 10
+
+  hybrid_channel_only:
+    model: hybrid_channel_only
+    description: >
+      Ablation 1: Hybrid architecture with Channel Attention only (CAM).
+    backbone: efficientnet_b0
+    attention_type: channel
+    use_metadata: false
+    lr: 1.0e-3
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    dropout: 0.35
+    early_stopping_patience: 10
+
+  hybrid_spatial_only:
+    model: hybrid_spatial_only
+    description: >
+      Ablation 2: Hybrid architecture with Spatial Attention only (SAM).
+    backbone: efficientnet_b0
+    attention_type: spatial
+    use_metadata: false
+    lr: 1.0e-3
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    dropout: 0.35
+    early_stopping_patience: 10
+
+  hybrid_no_attention:
+    model: hybrid_no_attention
+    description: >
+      Ablation 3: Hybrid architecture without attention mechanism (backbone floor).
+    backbone: efficientnet_b0
+    attention_type: none
+    use_metadata: false
+    lr: 1.0e-3
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    dropout: 0.35
+    early_stopping_patience: 10
+
+  hybrid_multimodal_concat:
+    model: hybrid_multimodal_concat
+    description: >
+      Ablation 4: Multimodal Hybrid with CBAM attention and feature concatenation.
+    backbone: efficientnet_b0
+    attention_type: cbam
+    use_metadata: true
+    fusion_type: concat
+    metadata_dim: 10
+    lr: 1.0e-3
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    dropout: 0.35
+    early_stopping_patience: 10
+
+  hybrid_multimodal_gated:
+    model: hybrid_multimodal_gated
+    description: >
+      Full Proposed Multimodal Hybrid Architecture with CBAM dual-attention and
+      Gated Multimodal Unit (GMU) dynamic demographic routing.
+    backbone: efficientnet_b0
+    attention_type: cbam
+    use_metadata: true
+    fusion_type: gated
+    metadata_dim: 10
+    lr: 1.0e-3
+    lr_scheduler: warmup_cosine
+    freeze_backbone: true
+    dropout: 0.35
+    early_stopping_patience: 10

@@ -76,6 +76,19 @@ def _build_model(model_name: str, num_classes: int, image_size: tuple, exp_cfg: 
             dropout_rate=exp_cfg.get("dropout", 0.3),
             freeze_backbone=exp_cfg.get("freeze_backbone", True),
         )
+    elif model_name.startswith("hybrid") or "hybrid" in model_name:
+        from src.models.hybrid_model import build_hybrid_model
+        return build_hybrid_model(
+            input_shape=(*image_size, 3),
+            num_classes=num_classes,
+            backbone=exp_cfg.get("backbone", "efficientnet_b0"),
+            attention_type=exp_cfg.get("attention_type", "cbam"),
+            use_metadata=exp_cfg.get("use_metadata", False),
+            metadata_dim=exp_cfg.get("metadata_dim", 10),
+            fusion_type=exp_cfg.get("fusion_type", "gated"),
+            dropout_rate=exp_cfg.get("dropout", 0.35),
+            freeze_backbone=exp_cfg.get("freeze_backbone", True),
+        )
     else:
         raise ValueError(f"Unknown model name: '{model_name}'")
 
@@ -88,6 +101,7 @@ def _build_dataset(
     split_dir: Optional[str] = None,
     image_dir: Optional[str] = None,
     num_classes: int = 7,
+    use_metadata: bool = False,
 ):
     """Create TF datasets for train / validation.
 
@@ -113,14 +127,32 @@ def _build_dataset(
         all_labels = sorted(train_df[label_col].unique().tolist())
         label2idx = {l: i for i, l in enumerate(all_labels)}
 
-        def _load_df(df, augment=False):
+        # Preprocess metadata if requested
+        meta_dim = 0
+        train_meta_vecs = None
+        val_meta_vecs = None
+        if use_metadata:
+            from src.preprocessing.tabular_preprocessor import ClinicalTabularPreprocessor
+            preprocessor = ClinicalTabularPreprocessor()
+            train_meta_vecs = preprocessor.fit_transform(train_df)
+            val_meta_vecs = preprocessor.transform(val_df)
+            meta_dim = preprocessor.output_dim
+            train_df = train_df.copy()
+            train_df["_meta_idx"] = np.arange(len(train_df))
+            val_df = val_df.copy()
+            val_df["_meta_idx"] = np.arange(len(val_df))
+
+        def _load_df(df, meta_vecs=None, augment=False):
             paths = []
             labels = []
+            metas = []
             for _, row in df.iterrows():
                 img_path = img_dir / f"{row['image_id']}.jpg"
                 if img_path.exists():
                     paths.append(str(img_path))
                     labels.append(label2idx.get(row[label_col], 0))
+                    if use_metadata and meta_vecs is not None:
+                        metas.append(meta_vecs[row["_meta_idx"]])
 
             if not paths:
                 return None, 0
@@ -138,25 +170,42 @@ def _build_dataset(
                 return img
 
             img_ds = path_ds.map(_decode, num_parallel_calls=tf.data.AUTOTUNE)
-            ds = tf.data.Dataset.zip((img_ds, label_ds))
-            if augment:
-                ds = ds.map(
-                    lambda x, y: (
-                        tf.image.random_flip_left_right(
+
+            if use_metadata and metas:
+                meta_ds = tf.data.Dataset.from_tensor_slices(
+                    np.array(metas, dtype=np.float32)
+                )
+                if augment:
+                    # Apply image augmentation while keeping metadata unchanged
+                    def _aug_multimodal(x, m):
+                        x = tf.image.random_flip_left_right(x)
+                        x = tf.image.random_flip_up_down(x)
+                        return (x, m)
+                    input_ds = tf.data.Dataset.zip((img_ds, meta_ds)).map(
+                        _aug_multimodal, num_parallel_calls=tf.data.AUTOTUNE
+                    )
+                else:
+                    input_ds = tf.data.Dataset.zip((img_ds, meta_ds))
+                ds = tf.data.Dataset.zip((input_ds, label_ds))
+            else:
+                if augment:
+                    img_ds = img_ds.map(
+                        lambda x: tf.image.random_flip_left_right(
                             tf.image.random_flip_up_down(x)
                         ),
-                        y,
-                    ),
-                    num_parallel_calls=tf.data.AUTOTUNE,
-                )
+                        num_parallel_calls=tf.data.AUTOTUNE,
+                    )
+                ds = tf.data.Dataset.zip((img_ds, label_ds))
+
             return ds.batch(batch_size).prefetch(tf.data.AUTOTUNE), len(paths)
 
-        train_ds, n_train = _load_df(train_df, augment=True)
-        val_ds, n_val = _load_df(val_df, augment=False)
-        return train_ds, val_ds, n_train, n_val
+        train_ds, n_train = _load_df(train_df, meta_vecs=train_meta_vecs, augment=True)
+        val_ds, n_val = _load_df(val_df, meta_vecs=val_meta_vecs, augment=False)
+        return train_ds, val_ds, n_train, n_val, meta_dim
 
     # ── Fallback: build a minimal dataset from sample images on disk ──────
-    return _build_fallback_dataset(img_dir, image_size, batch_size, num_classes)
+    fb_train, fb_val, fb_nt, fb_nv = _build_fallback_dataset(img_dir, image_size, batch_size, num_classes)
+    return fb_train, fb_val, fb_nt, fb_nv, 0
 
 
 def _build_fallback_dataset(img_dir: Path, image_size, batch_size, num_classes):
