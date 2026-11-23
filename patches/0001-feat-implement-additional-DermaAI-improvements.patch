@@ -1,0 +1,1848 @@
+From 26312e8802113ec48c268dce5c9ab138c570db59 Mon Sep 17 00:00:00 2001
+From: syedisrarullahtanveer <syedisrarullahtanveer01@gmail.com>
+Date: Mon, 23 Nov 2026 10:22:46 +0530
+Subject: [PATCH] feat: implement additional DermaAI improvements
+
+---
+ .pre-commit-config.yaml                 |  12 +
+ README.md                               | 184 +++++-------
+ backend/service.py                      |  24 +-
+ docs/architecture.md                    |  78 ++---
+ docs/installation.md                    |  45 +++
+ frontend/index.html                     |   2 +-
+ frontend/package.json                   |   8 +
+ frontend/src/components/UploadImage.tsx |   2 +-
+ scripts/run_xai_demo.py                 |  58 ++++
+ src/explainability/__init__.py          |   2 +-
+ src/explainability/explainer.py         | 199 +++++++++++++
+ src/explainability/gradcam.py           | 319 ++++++++++++++++++---
+ src/explainability/visualization.py     | 126 +++++++++
+ src/explainability/visualizer.py        | 360 ++++++++++++++++++++++--
+ tests/test_integration.py               |  82 ++++++
+ tests/test_xai.py                       |  87 ++++++
+ 16 files changed, 1356 insertions(+), 232 deletions(-)
+ create mode 100644 .pre-commit-config.yaml
+ create mode 100644 docs/installation.md
+ create mode 100644 scripts/run_xai_demo.py
+ create mode 100644 src/explainability/explainer.py
+ create mode 100644 src/explainability/visualization.py
+ create mode 100644 tests/test_integration.py
+ create mode 100644 tests/test_xai.py
+
+diff --git a/.pre-commit-config.yaml b/.pre-commit-config.yaml
+new file mode 100644
+index 0000000..deb2ae3
+--- /dev/null
++++ b/.pre-commit-config.yaml
+@@ -0,0 +1,12 @@
++repos:
++  default: https://github.com/pre-commit/pre-commit-hooks
++  https://github.com/psf/black:
++    rev: 23.12.0
++    hooks:
++      - id: black
++        language_version: python3
++  https://github.com/charliermarsh/ruff-pre-commit:
++    rev: v0.3.0
++    hooks:
++      - id: ruff
++        args: [--fix]
+diff --git a/README.md b/README.md
+index 5691ff4..6ee0695 100644
+--- a/README.md
++++ b/README.md
+@@ -1,124 +1,94 @@
+-# DermaAI: Intelligent Skin Disease Detection System
+-
+-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange.svg)](https://tensorflow.org/)
+-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109%2B-green.svg)](https://fastapi.tiangolo.com/)
+-[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
+-[![Maintenance](https://img.shields.io/badge/Status-Active%20Development-success.svg)]()
+-
+-> **DermaAI** is an advanced, research-oriented deep learning system engineered for multi-class skin lesion classification and clinical diagnostic decision support. It combines modern computer vision architectures (ResNet, EfficientNet, MobileNet), Convolutional Block Attention Modules (CBAM), multimodal tabular metadata fusion, and Explainable AI (Grad-CAM/Grad-CAM++) into a production-ready web platform.
+-
+----
+-
+-## 🌟 Key Highlights & Architectural Features
+-
+-- **7-Class Lesion Taxonomy (HAM10000 Benchmark)**:
+-  - `MEL`: Melanoma *(Critical)*
+-  - `BCC`: Basal Cell Carcinoma *(High)*
+-  - `AKIEC`: Actinic Keratoses and Intraepithelial Carcinoma *(High)*
+-  - `BKL`: Benign Keratosis-like Lesions *(Low)*
+-  - `DF`: Dermatofibroma *(Low)*
+-  - `VASC`: Vascular Lesions *(Low)*
+-  - `NV`: Melanocytic Nevi *(Low)*
+-- **Advanced Preprocessing Engine**:
+-  - **DullRazor Algorithm**: Morphological black-hat filtering and bi-cubic inpainting for complete artifact and hair occlusion elimination.
+-  - **Color Constancy**: Gray World illumination normalization to harmonize dermoscopic imaging variations across different lighting sources.
+-- **Deep Architecture Suite**:
+-  - Baseline modular Deep CNN with residual connections and spatial regularization.
+-  - Transfer learning backbones: **ResNet50**, **EfficientNetB0**, and **MobileNetV2**.
+-  - **CBAM Attention**: Channel and Spatial Attention mechanisms focusing on clinically distinctive lesion borders and pigment patterns.
+-  - **Multimodal Fusion**: Dual-branch architecture merging high-level visual representations with clinical tabular features (patient age, sex, anatomical site).
+-- **Explainable AI (XAI)**:
+-  - Real-time **Grad-CAM** and **Grad-CAM++** heatmap synthesis for clinical transparency and localized diagnostic justification.
+-- **Full-Stack Ecosystem**:
+-  - **FastAPI Backend**: Asynchronous inference pipeline, strict Pydantic input/output schemas, and OpenAPI documentation.
+-  - **Frontend Dashboard**: Medical-grade diagnostic UI with real-time probability charts, lesion zoom, and Grad-CAM opacity controls.
+-- **Robustness & Engineering**:
+-  - Patient-aware stratified dataset partitioning preventing patient overlap leakage.
+-  - Focal loss and class-weighted cross-entropy addressing severe class imbalance.
+-
+----
+-
+-## 📂 Project Architecture
+-
+-```
+-DermaAI/
+-├── dataset/                  # Dataset specifications and storage guides
+-│   ├── raw/                  # Raw HAM10000/ISIC dermoscopy images (git-ignored)
+-│   ├── processed/            # Cleaned, hair-removed, normalized images (git-ignored)
+-│   └── metadata/             # Clinical metadata CSV tables
+-├── configs/                  # Centralized YAML hyperparameter and model configs
+-├── notebooks/                # Exploratory Data Analysis and research prototyping
+-├── src/                      # Production Python package
+-│   ├── data/                 # Data loaders, patient splitting, tf.data pipelines
+-│   ├── preprocessing/        # DullRazor, color constancy, Albumentations
+-│   ├── models/               # Baseline CNN, Transfer suite, CBAM Attention, Fusion
+-│   ├── training/             # Loss functions (Focal Loss), trainer, callbacks
+-│   ├── evaluation/           # Multiclass metrics, ROC curves, Confusion Matrix
+-│   ├── explainability/       # Grad-CAM and Grad-CAM++ localization engines
+-│   └── utils.py              # System logger, reproducibility seeds, device utils
+-├── backend/                  # FastAPI inference REST API service
+-├── frontend/                 # Interactive medical-grade clinical dashboard
+-├── tests/                    # Pytest test suite for data, models, XAI, and API
+-├── docs/                     # Architectural, research, and API documentation
+-└── scripts/                  # CLI utilities for verification, training, and evaluation
+-```
+-
+----
+-
+-## 🚀 Quick Start Guide
+-
+-### 1. Environment Setup
+-
++# DermaAI
++
++**DermaAI – Intelligent Skin Disease Detection**
++
++DermaAI is an open‑source research prototype that combines deep learning, explainable AI (Grad‑CAM), and a modern web dashboard to assist clinicians and researchers in analyzing dermoscopic images.
++
++## Table of Contents
++- [Overview](#overview)
++- [Features](#features)
++- [Installation](#installation)
++- [Dataset](#dataset)
++- [Model Methodology](#model-methodology)
++- [Experimental Results](#experimental-results)
++- [API Documentation](#api-documentation)
++- [Screenshots](#screenshots)
++- [Limitations & Ethical Considerations](#limitations--ethical-considerations)
++- [Deployment](#deployment)
++- [Development & Testing](#development--testing)
++- [Contributing](#contributing)
++- [License](#license)
++
++## Overview
++DermaAI provides a **FastAPI** backend that:
++- Accepts dermoscopic image uploads.
++- Performs pre‑processing (hair removal, color constancy).
++- Runs an EfficientNet‑B0 backbone with CBAM/SE attention modules.
++- Returns top‑k predictions, confidence scores, and a Grad‑CAM heatmap.
++
++The **React + Vite** frontend offers a responsive medical‑style dashboard (blue‑and‑white theme) with:
++- Image upload & preview.
++- Real‑time inference results.
++- Class‑wise probability bars.
++- Grad‑CAM visualisation.
++- Model information, about page, and disclaimer.
++
++> **⚠️ Disclaimer:** DermaAI is a research prototype and **does not provide medical diagnoses**. Results are for educational and experimental purposes only.
++
++## Features
++- End‑to‑end inference pipeline with explainability.
++- Robust API with validation and error handling.
++- Automated CI pipeline (GitHub Actions) running unit, integration and performance tests.
++- Full documentation and reproducible experiment reports.
++
++## Installation
++See the full [Installation Guide](docs/installation.md) for step‑by‑step instructions, but the quick‑start is:
+ ```bash
+-# Clone repository
+-git clone https://github.com/syedisrarullahtanveer/DermaAI.git
++# Clone the repo
++git clone https://github.com/your-org/DermaAI.git
+ cd DermaAI
+ 
+-# Create virtual environment
++# Backend (Python)
+ python -m venv venv
+-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+-
+-# Install dependencies
++venv\Scripts\activate  # Windows
+ pip install -r requirements.txt
+-```
++uvicorn backend.main:app --reload
+ 
+-### 2. Verify Environment & Hardware
+-
+-```bash
+-python scripts/verify_environment.py
++# Frontend (Node)
++cd frontend
++npm install  # or pnpm install (requires network)
++npm run dev
+ ```
+ 
+-### 3. Model Training & Evaluation
+-
+-```bash
+-# Train baseline CNN
+-python scripts/train.py --model baseline_cnn
+-
+-# Train Attention-augmented network
+-python scripts/train.py --model attention_cbam
++## Dataset
++DermaAI was trained on the **ISIC 2018** dataset (7 diagnostic classes). Details on data acquisition, preprocessing, and licensing are documented in [Dataset Documentation](docs/dataset.md).
+ 
+-# Evaluate model performance
+-python scripts/evaluate.py --model attention_cbam --weights models/saved_models/best_model.keras
+-```
++## Model Methodology
++The model architecture, training schedule, loss functions and explainability pipeline are described in [Model Methodology](docs/methodology.md).
+ 
+-### 4. Run Backend API
++## Experimental Results
++Benchmark results, confusion matrices and class‑wise ROC curves are summarised in [Experimental Results](docs/results.md).
+ 
+-```bash
+-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+-```
+-Interactive API documentation will be available at: `http://localhost:8000/docs`.
++## API Documentation
++The FastAPI OpenAPI schema is available at `http://localhost:8000/docs`. A concise reference is kept in [API Documentation](docs/api.md).
+ 
+----
++## Screenshots
++![Dashboard](docs/screenshots/dashboard.png)
++![Grad‑CAM overlay](docs/screenshots/gradcam.png)
+ 
+-## 📈 Development Progress
++## Limitations & Ethical Considerations
++DermaAI is trained on a limited public dataset and may not generalise to all skin tones or rare conditions. See [Limitations & Ethics](docs/limitations.md) for a thorough discussion.
+ 
+-Development follows a strict **400-Commit Incremental Roadmap**.
+-Detailed commit logs, phase completion metrics, and task statuses are tracked in [`PROGRESS.md`](PROGRESS.md).
++## Deployment
++Guidelines for containerising and deploying to cloud platforms (Docker, Kubernetes, GCP) are in [Deployment Instructions](docs/deployment.md).
+ 
+----
++## Development & Testing
++- Run all tests with `pytest -q`.
++- Integration tests cover the full API‑frontend flow.
++- CI runs on every push (see `.github/workflows/ci.yml`).
+ 
+-## 📄 License & Attribution
++## Contributing
++Please read the [Contribution Guide](CONTRIBUTING.md) before submitting pull requests.
+ 
+-This project is licensed under the MIT License.
+-Dataset acknowledgments: The International Skin Imaging Collaboration (ISIC) and the HAM10000 dataset (*ViDIR Group, Medical University of Vienna*).
++## License
++DermaAI is released under the MIT License. See `LICENSE` for details.
+diff --git a/backend/service.py b/backend/service.py
+index 9b47e20..d21d56d 100644
+--- a/backend/service.py
++++ b/backend/service.py
+@@ -1,9 +1,31 @@
+ """Model Inference Service Orchestrator for DermaAI Backend."""
+ 
+ import base64
++import cv2
+ import io
+ import time
+-from typing import Dict, List, Optional, Tuple
++import os
++
++# Existing imports ... (the top part will be inserted after the import statements)
++# Insert after line 7 (which currently is "from typing import Dict, List, Optional, Tuple")
++
++
++import numpy as np
++import tensorflow as tf
++from PIL import Image
++
++from src.models.transfer_models import build_transfer_model
++from src.preprocessing.image_cleaner import DullRazorCleaner, GrayWorldColorConstancy
++from src.explainability.gradcam import GradCAMExplainer
++from src.explainability.visualizer import HeatmapVisualizer
++from src.utils import setup_logger
++import io
++import time
++import os
++
++# Existing imports ... (the top part will be inserted after the import statements)
++# Insert after line 7 (which currently is "from typing import Dict, List, Optional, Tuple")
++
+ import cv2
+ import numpy as np
+ from PIL import Image
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 03110b6..b72bfa3 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -1,61 +1,23 @@
+-# DermaAI: System Architecture Blueprint
++## Project Architecture
+ 
+-This document details the complete end-to-end software and machine learning architecture of the DermaAI system.
+-
+----
+-
+-## 🏛️ High-Level System Architecture
+-
+-```mermaid
+-flowchart TD
+-    subgraph Data_Layer ["Data & Preprocessing Layer"]
+-        RAW["Raw Dermoscopy Image"] --> DR["DullRazor Hair Removal (Black-Hat Morphology + Inpainting)"]
+-        DR --> CC["Gray World Color Constancy"]
+-        CC --> AUG["Rotational & Spatial Augmentation (Albumentations)"]
+-    end
+-
+-    subgraph Model_Layer ["Deep Learning & Attention Layer"]
+-        AUG --> BACKBONE["Convolutional Backbone (EfficientNet / ResNet / Custom CNN)"]
+-        BACKBONE --> CBAM_BLOCK["Convolutional Block Attention Module (CBAM)"]
+-        CBAM_BLOCK --> CAM["Channel Attention (Inter-channel salient patterns)"]
+-        CBAM_BLOCK --> SAM["Spatial Attention (Lesion border & morphology localization)"]
+-        CAM & SAM --> RES_FUSION["Residual Attention Integration"]
+-    end
+-
+-    subgraph Multimodal_Layer ["Multimodal Tabular Integration"]
+-        META["Clinical Demographics (Age, Sex, Site)"] --> TAB_MLP["Tabular Preprocessor & Feature MLP"]
+-        RES_FUSION & TAB_MLP --> GMU["Gated Multimodal Unit (GMU) Fusion"]
+-    end
+-
+-    subgraph Diagnostics_Layer ["Clinical Diagnostic & Explainability Head"]
+-        GMU --> SOFTMAX["Softmax Classification (7-Class Lesion Probabilities)"]
+-        RES_FUSION --> GCAM["Grad-CAM / Grad-CAM++ Gradient Extraction"]
+-        GCAM --> OVERLAY["Thermal Activation Overlay Generation"]
+-    end
+-
+-    subgraph Serving_Layer ["Production Serving & Full-Stack"]
+-        SOFTMAX & OVERLAY --> API["FastAPI Asynchronous Inference Engine"]
+-        API --> UI["Clinical React Dashboard (Real-time Diagnostic Support)"]
+-    end
++```
++DermaAI/
++├─ backend/                 # FastAPI service
++│   ├─ main.py              # API entrypoint
++│   └─ service.py           # Model inference wrapper
++├─ frontend/                # React + Vite UI
++│   ├─ src/
++│   │   ├─ components/      # UI widgets (UploadImage, PredictionResult, GradCamViewer)
++│   │   ├─ pages/           # Static pages (ModelInfo, About, Disclaimer)
++│   │   └─ App.tsx          # Routing and layout
++│   └─ index.html
++├─ src/                     # Core ML / XAI utilities used by backend
++│   ├─ models/              # Model definitions
++│   ├─ explainability/      # Grad‑CAM implementation
++│   └─ preprocessing/       # Image cleaning utilities
++├─ tests/                   # Unit, integration and performance tests
++├─ docs/                    # Documentation (markdown)
++└─ .github/workflows/ci.yml # CI pipeline
+ ```
+ 
+----
+-
+-## 🧩 Architectural Subsystems
+-
+-### 1. Data & Preprocessing Subsystem
+-- **DullRazor Algorithm**: Uses a 9x9 rectangular structuring element to compute the morphological black-hat transform, isolating occluding dark hairs from lighter skin backgrounds. A threshold filter isolates hair masks, which are smoothly reconstructed using Telea's Fast Marching inpainting.
+-- **Color Constancy**: Uses the Gray World hypothesis to neutralize illumination differences resulting from different dermatoscope models and ambient room lighting.
+-
+-### 2. Deep Learning & Attention Backbone
+-- **Modular Baseline CNN**: Built with 4 progressive convolutional stages, residual skip connections, spatial dropout, and batch normalization.
+-- **Transfer Learning Backbones**: Pre-trained on ImageNet with top classifier heads tailored for 7-class dermatological diagnosis.
+-- **Convolutional Block Attention Module (CBAM)**: Exploits channel attention (via dual average and max pooling into shared dense bottlenecks) and spatial attention (via 7x7 receptive field convolution) to refine feature representations before classification.
+-
+-### 3. Explainable AI (XAI) Engine
+-- Computes first- and second-order gradients of the top predicted class activation score with respect to the final convolutional feature maps.
+-- Produces normalized thermal activation heatmaps highlighting the exact lesion characteristics driving the diagnosis.
+-
+-### 4. Serving & Presentation Layer
+-- **FastAPI Backend**: Provides asynchronous image streaming, sub-second latency, and automatic OpenAPI schema validation.
+-- **React Dashboard**: Provides interactive lesion image upload, clinical demographic inputs, real-time probability charts, and interactive Grad-CAM heatmap toggles.
++The backend exposes a `/api/predict` endpoint that receives an image, runs preprocessing, performs inference and optionally returns a Grad‑CAM heatmap. The frontend consumes this API and visualises the results.
+diff --git a/docs/installation.md b/docs/installation.md
+new file mode 100644
+index 0000000..da6d7cb
+--- /dev/null
++++ b/docs/installation.md
+@@ -0,0 +1,45 @@
++# Installation Guide
++
++## Prerequisites
++- **Python 3.10+** (recommended via `conda` or `venv`).
++- **Node 20+** and `npm` (or `pnpm`) for the frontend.
++- **Git** for version control.
++- **Docker** (optional, for containerised deployment).
++
++## Backend setup
++```bash
++# Clone the repository
++git clone https://github.com/your-org/DermaAI.git
++cd DermaAI
++
++# Create a virtual environment
++python -m venv venv
++# Windows
++venv\Scripts\activate
++# macOS/Linux
++source venv/bin/activate
++
++# Install Python dependencies
++pip install -r requirements.txt
++
++# Run the FastAPI server
++uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
++```
++
++## Frontend setup
++```bash
++cd frontend
++npm install   # or pnpm install if you prefer
++npm run dev   # starts Vite dev server at http://localhost:5173
++```
++
++The frontend expects the backend at `http://localhost:8000/api`. Adjust the `API_BASE` constant in `src/components/UploadImage.tsx` if you change the address.
++
++## Optional containerised run
++```bash
++docker compose up --build
++```
++This will start both backend and frontend containers and expose them on ports **8000** (API) and **5173** (UI).
++
++---
++*For a clean environment, delete the `venv` folder and reinstall from `requirements.txt`.*
+\ No newline at end of file
+diff --git a/frontend/index.html b/frontend/index.html
+index b39a2fa..8397c19 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -10,6 +10,6 @@
+   </head>
+   <body class="bg-slate-50 text-slate-900 font-sans antialiased">
+     <div id="root"></div>
+-    <script type="module" src="/src/main.jsx"></script>
++    <script type="module" src="/src/main.tsx"></script>
+   </body>
+ </html>
+diff --git a/frontend/package.json b/frontend/package.json
+index edc9512..ddfc54e 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -9,6 +9,14 @@
+     "preview": "vite preview"
+   },
+   "dependencies": {
++    "@mui/material": "^5.15.0",
++    "@emotion/react": "^11.11.0",
++    "@emotion/styled": "^11.11.0",
++    "react-router-dom": "^6.22.0",
++    "axios": "^1.7.2",
++    "lucide-react": "^0.300.0",
++    "react": "^18.2.0",
++    "react-dom": "^18.2.0"
+     "lucide-react": "^0.300.0",
+     "react": "^18.2.0",
+     "react-dom": "^18.2.0"
+diff --git a/frontend/src/components/UploadImage.tsx b/frontend/src/components/UploadImage.tsx
+index bba5442..a404acc 100644
+--- a/frontend/src/components/UploadImage.tsx
++++ b/frontend/src/components/UploadImage.tsx
+@@ -4,7 +4,7 @@ import { Upload } from 'lucide-react';
+ import axios from 'axios';
+ 
+ // Adjust the base URL to match the FastAPI backend (assuming localhost:8000)
+-const API_BASE = 'http://localhost:8000';
++    const API_BASE = 'http://localhost:8000/api';
+ 
+ interface Props {
+   onResult?: (data: any) => void; // callback to parent with prediction result
+diff --git a/scripts/run_xai_demo.py b/scripts/run_xai_demo.py
+new file mode 100644
+index 0000000..d4cf13b
+--- /dev/null
++++ b/scripts/run_xai_demo.py
+@@ -0,0 +1,58 @@
++"""Command‑line demo for DermaAI XAI.
++
++Usage example::
++
++    python scripts/run_xai_demo.py \
++        --model reports/checkpoints/best_resnet50.keras \
++        --image dataset/raw/sample_images/ISIC_SAMPLE_00001.jpg \
++        --output_dir reports/xai_demo
++
++The script loads the model, runs Grad‑CAM, saves the original image, heatmap,
++overlay and a JSON manifest, and also produces a multi‑panel figure showing the
++prediction probabilities.
++"""
++
++import argparse
++import pathlib
++
++from src.explainability.explainer import DermaExplainer
++from src.explainability.visualization import plot_prediction_panel
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description="Run a single‑image XAI explanation for DermaAI.")
++    parser.add_argument("--model", required=True, help="Path to a Keras checkpoint (.keras or .h5).")
++    parser.add_argument("--image", required=True, help="Path to the input image file.")
++    parser.add_argument(
++        "--output_dir",
++        default="reports/xai_demo",
++        help="Directory where explanation artefacts will be stored.",
++    )
++    parser.add_argument(
++        "--class_names",
++        nargs="*",
++        default=None,
++        help="Optional list of class names matching the model output order.",
++    )
++    args = parser.parse_args()
++
++    explainer = DermaExplainer(str(args.model), class_names=args.class_names)
++    result = explainer.explain(str(args.image))
++    explainer.save_explanation(result, args.output_dir)
++
++    # Also generate a nice figure for quick visual inspection
++    fig_path = pathlib.Path(args.output_dir) / pathlib.Path(args.image).stem / "panel.png"
++    plot_prediction_panel(
++        image=result.overlay,  # reuse the overlay as the base image for figure simplicity
++        heatmap=result.heatmap,
++        overlay=result.overlay,
++        class_probs=result.class_probs,
++        class_names=args.class_names,
++        predicted_class=result.class_idx,
++        save_path=str(fig_path),
++    )
++    print(f"Explanation saved to {args.output_dir}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/explainability/__init__.py b/src/explainability/__init__.py
+index 32ca5eb..4d6ae69 100644
+--- a/src/explainability/__init__.py
++++ b/src/explainability/__init__.py
+@@ -3,4 +3,4 @@
+ from src.explainability.gradcam import GradCAMExplainer
+ from src.explainability.visualizer import HeatmapVisualizer
+ 
+-__all__ = ["GradCAMExplainer", "HeatmapVisualizer"]
++__all__ = ["GradCAMExplainer", "HeatmapVisualizer", "DermaExplainer", "ExplanationResult", "plot_prediction_panel"]
+diff --git a/src/explainability/explainer.py b/src/explainability/explainer.py
+new file mode 100644
+index 0000000..5107e0f
+--- /dev/null
++++ b/src/explainability/explainer.py
+@@ -0,0 +1,199 @@
++"""High‑level XAI orchestrator for DermaAI.
++
++Provides a convenient API that:
++  * Loads a trained Keras model (path to .keras or .h5 checkpoint).
++  * Runs Grad‑CAM (or Grad‑CAM++) on a single image (and optional metadata).
++  * Overlays the heatmap on the original image.
++  * Packages the result (heatmap, overlay, class probabilities, disclaimer).
++  * Saves the resulting visual artefacts to a user‑specified directory.
++
++All visual artefacts are stored under the given ``output_dir`` with a
++sub‑directory named after the source image filename.
++"""
++
++from __future__ import annotations
++
++import os
++import pathlib
++from dataclasses import dataclass
++from typing import Optional, Tuple
++
++import numpy as np
++import tensorflow as tf
++
++from src.explainability.gradcam import GradCAMExplainer
++from src.explainability.visualizer import HeatmapVisualizer
++
++
++@dataclass
++class ExplanationResult:
++    """Container for a single explanation.
++
++    Attributes
++    ----------
++    image_path: str
++        Path to the original input image.
++    heatmap: np.ndarray
++        Normalised 2‑D heatmap (H, W) in ``[0, 1]``.
++    overlay: np.ndarray
++        RGB image (uint8) with heatmap blended on top of the original.
++    class_idx: int
++        Predicted class index.
++    class_probs: np.ndarray
++        Probability distribution over all classes.
++    disclaimer: str
++        Mandatory disclaimer string – never omit.
++    """
++
++    image_path: str
++    heatmap: np.ndarray
++    overlay: np.ndarray
++    class_idx: int
++    class_probs: np.ndarray
++    disclaimer: str = GradCAMExplainer.DISCLAIMER
++
++
++class DermaExplainer:
++    """Convenient wrapper around :class:`GradCAMExplainer`.
++
++    Typical usage::
++
++        expl = DermaExplainer(model_path="reports/checkpoints/best_resnet50.keras",
++                              class_names=["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"])
++        result = expl.explain(image_path="dataset/raw/sample_images/ISIC_SAMPLE_00001.jpg")
++        expl.save_explanation(result, output_dir="reports/xai")
++    """
++
++    def __init__(
++        self,
++        model_path: str,
++        class_names: Optional[list[str]] = None,
++        target_layer_name: Optional[str] = None,
++    ) -> None:
++        self.model_path = model_path
++        self.class_names = class_names
++        # Load model – we deliberately use ``compile=False`` because we only need inference.
++        self.model = tf.keras.models.load_model(model_path, compile=False)
++        self.gradcam = GradCAMExplainer(self.model, target_layer_name=target_layer_name)
++
++    # ------------------------------------------------------------------
++    # Core API
++    # ------------------------------------------------------------------
++    def explain(
++        self,
++        image_path: str,
++        metadata: Optional[np.ndarray] = None,
++        use_gradcam_plus_plus: bool = False,
++    ) -> ExplanationResult:
++        """Generate an explanation for a single image.
++
++        Parameters
++        ----------
++        image_path: str
++            Path to an RGB image file readable by ``tf.keras.preprocessing.image.load_img``.
++        metadata: Optional[np.ndarray]
++            Optional 1‑D metadata vector. If ``None`` and the model expects a second input,
++            a zero‑filled placeholder will be used automatically by ``GradCAMExplainer``.
++        use_gradcam_plus_plus: bool
++            Switch to the higher‑order Grad‑CAM++ algorithm.
++        """
++        # Load and preprocess the image – we reuse the project's ``utils`` if present or a simple decoder.
++        img_raw = tf.keras.utils.load_img(image_path)
++        img_arr = tf.keras.utils.img_to_array(img_raw)
++        # Normalise to [0, 1] as the training pipeline expects.
++        img_arr = img_arr / 255.0
++        # Add batch dimension
++        img_tensor = tf.expand_dims(img_arr, 0)
++
++        heatmap = self.gradcam.generate_heatmap(
++            img_tensor,
++            class_idx=None,
++            use_gradcam_plus_plus=use_gradcam_plus_plus,
++            metadata_tensor=metadata,
++        )
++        overlay = HeatmapVisualizer.overlay_heatmap(img_arr, heatmap)
++        class_idx, probs = self.gradcam.predict(img_tensor, metadata_tensor=metadata)
++        return ExplanationResult(
++            image_path=image_path,
++            heatmap=heatmap,
++            overlay=overlay,
++            class_idx=int(class_idx),
++            class_probs=probs,
++        )
++
++    # ------------------------------------------------------------------
++    # Persistence helpers
++    # ------------------------------------------------------------------
++    def save_explanation(
++        self, result: ExplanationResult, output_dir: str, prefix: Optional[str] = None
++    ) -> None:
++        """Write the heatmap, overlay and a small JSON manifest to ``output_dir``.
++
++        The directory structure will be ``{output_dir}/{basename_without_ext}``.
++        Files written:
++            * ``original.png`` – copy of the input image (for completeness).
++            * ``heatmap.npy`` – raw float array.
++            * ``heatmap.png`` – visual heatmap coloured with ``jet``.
++            * ``overlay.png`` – blended image.
++            * ``manifest.json`` – JSON with predicted class, probabilities and disclaimer.
++        """
++        os.makedirs(output_dir, exist_ok=True)
++        base = pathlib.Path(result.image_path).stem
++        if prefix:
++            base = f"{prefix}_{base}"
++        out_path = pathlib.Path(output_dir) / base
++        out_path.mkdir(parents=True, exist_ok=True)
++
++        # Save original image (copy)
++        orig = tf.keras.utils.load_img(result.image_path)
++        orig_arr = tf.keras.utils.img_to_array(orig).astype(np.uint8)
++        tf.keras.utils.save_img(str(out_path / "original.png"), orig_arr)
++
++        # Save heatmap (raw + visual)
++        np.save(str(out_path / "heatmap.npy"), result.heatmap)
++        # Visual colour map – reuse visualizer's internal colormap logic via a temporary call
++        heat_vis = HeatmapVisualizer.overlay_heatmap(
++            np.zeros_like(result.overlay),  # black background just to get coloured heatmap
++            result.heatmap,
++            alpha=1.0,  # full colour, no blending
++        )
++        tf.keras.utils.save_img(str(out_path / "heatmap.png"), heat_vis)
++
++        # Save overlay
++        tf.keras.utils.save_img(str(out_path / "overlay.png"), result.overlay)
++
++        # Manifest JSON
++        manifest = {
++            "image_path": result.image_path,
++            "predicted_class_idx": result.class_idx,
++            "predicted_class_name": (self.class_names[result.class_idx] if self.class_names else None),
++            "class_probabilities": result.class_probs.tolist(),
++            "disclaimer": result.disclaimer,
++        }
++        import json
++
++        with open(out_path / "manifest.json", "w", encoding="utf-8") as f:
++            json.dump(manifest, f, indent=2)
++
++    # ------------------------------------------------------------------
++    # Batch helper (optional convenience)
++    # ------------------------------------------------------------------
++    def batch_explain(
++        self,
++        image_paths: list[str],
++        output_dir: str,
++        metadata_list: Optional[list[np.ndarray]] = None,
++    ) -> None:
++        """Run ``explain`` over a list of images and persist each result.
++
++        ``metadata_list`` must be either ``None`` (no metadata) or a list matching
++        ``image_paths`` length. If the model expects metadata but ``metadata_list``
++        is ``None`` then zero‑filled placeholders are used automatically.
++        """
++        if metadata_list is None:
++            metadata_list = [None] * len(image_paths)
++        for img_path, meta in zip(image_paths, metadata_list):
++            result = self.explain(img_path, metadata=meta)
++            self.save_explanation(result, output_dir)
++
++# End of file
+diff --git a/src/explainability/gradcam.py b/src/explainability/gradcam.py
+index 40931e1..a71de58 100644
+--- a/src/explainability/gradcam.py
++++ b/src/explainability/gradcam.py
+@@ -1,94 +1,339 @@
+-"""Grad-CAM and Grad-CAM++ Implementations for Dermatological Lesion Localization."""
++"""Grad-CAM and Grad-CAM++ Implementations for Dermatological Lesion Localization.
++
++Mathematical Formulation
++------------------------
++Grad-CAM (Selvaraju et al., 2017):
++
++1. Forward pass to obtain class-discriminative feature maps F ∈ R^{H × W × K}
++   from the target convolutional layer.
++
++2. Compute gradient of class score S^c (before softmax) w.r.t. each channel k:
++       ∂S^c / ∂F_k
++
++3. Global Average Pool the gradients to obtain importance weights:
++       α_k^c = (1 / (H·W)) ∑_{i,j} (∂S^c / ∂F_k_{ij})
++
++4. Weighted combination + ReLU (retain only positive contributions):
++       CAM^c = ReLU( ∑_k α_k^c · F_k )
++
++5. Normalize to [0, 1]:
++       heatmap = (CAM^c - min) / (max - min)
++
++Grad-CAM++ (Chattopadhay et al., 2018):
++       Uses higher-order gradients (2nd, 3rd) for more precise pixel-level weights.
++
++Multimodal Handling:
++       When the model has multiple inputs (image + metadata), only the image
++       branch is used for Grad-CAM. Metadata is passed through as dummy zeros
++       if not supplied explicitly.
++"""
++
++from __future__ import annotations
++
++import logging
++from typing import List, Optional, Tuple, Union
+ 
+-from typing import Optional, Tuple
+ import numpy as np
+ import tensorflow as tf
+ 
++logger = logging.getLogger(__name__)
++
+ 
+ class GradCAMExplainer:
+     """Generates Gradient-weighted Class Activation Maps (Grad-CAM & Grad-CAM++).
+ 
+     Visualizes which visual regions within the dermoscopic field of view
+-    contribute most significantly to the network's diagnostic decision.
++    contribute most significantly to the network's classification decision.
++
++    Usage:
++        explainer = GradCAMExplainer(model)
++        heatmap = explainer.generate_heatmap(image_tensor)  # shape: (H, W) in [0,1]
++
++    Note:
++        Heatmaps indicate regions the model attended to — they are NOT
++        clinically validated indicators of pathology.
+     """
+ 
+-    def __init__(self, model: tf.keras.Model, target_layer_name: Optional[str] = None):
++    # Disclaimer embedded in every result — model outputs are NOT diagnoses
++    DISCLAIMER: str = (
++        "⚠ Research Tool Only: This Grad-CAM visualization highlights regions the AI model "
++        "focused on. It is NOT a confirmed medical diagnosis. Always consult a qualified "
++        "dermatologist for clinical assessment."
++    )
++
++    def __init__(
++        self,
++        model: tf.keras.Model,
++        target_layer_name: Optional[str] = None,
++    ) -> None:
++        """Initialise Grad-CAM explainer.
++
++        Args:
++            model: Trained Keras classification model.
++            target_layer_name: Name of target convolutional layer. If None,
++                the last 4-D layer is auto-detected.
++        """
+         self.model = model
+-        self.target_layer_name = target_layer_name or self._find_target_conv_layer()
+-        self.grad_model = self._create_grad_model()
++        self.target_layer_name: str = target_layer_name or self._find_target_conv_layer()
++        logger.info("GradCAM target layer: %s", self.target_layer_name)
++        self.grad_model: tf.keras.Model = self._create_grad_model()
++
++    # ------------------------------------------------------------------
++    # Layer discovery
++    # ------------------------------------------------------------------
+ 
+     def _find_target_conv_layer(self) -> str:
+-        """Automatically identify the final 4D convolutional feature layer in the model."""
++        """Auto-detect the last 4-D convolutional feature layer in the model.
++
++        Searches the top-level model layers first, then recurses into any
++        nested sub-models (e.g. backbone Model layers) to find the final
++        spatial feature map producer.
++
++        Returns:
++            str: Name of the target layer.
++
++        Raises:
++            ValueError: If no 4-D output layer is found.
++        """
++        # Walk from the end – we want the *last* convolutional layer
+         for layer in reversed(self.model.layers):
+-            # Check if layer outputs a 4D feature map (Batch, Height, Width, Channels)
+-            if hasattr(layer, "output_shape") and len(layer.output_shape) == 4:
++            if self._is_conv_layer(layer):
+                 return layer.name
+-            # If nested model (e.g. Backbone)
++            # Recurse into nested sub-models (backbone wrappers)
+             if isinstance(layer, tf.keras.Model):
+                 for sub_layer in reversed(layer.layers):
+-                    if hasattr(sub_layer, "output_shape") and len(sub_layer.output_shape) == 4:
++                    if self._is_conv_layer(sub_layer):
+                         return sub_layer.name
+-        raise ValueError("Could not find a valid 4D convolutional layer for Grad-CAM.")
++
++        raise ValueError(
++            "GradCAMExplainer: Could not find a valid 4-D convolutional layer "
++            f"in model '{self.model.name}'. Provide target_layer_name explicitly."
++        )
++
++    @staticmethod
++    def _is_conv_layer(layer: tf.keras.layers.Layer) -> bool:
++        """Return True if layer produces a 4-D spatial feature map."""
++        try:
++            shape = layer.output_shape
++            # Accepts both single shape tuple and list of shapes (multi-output)
++            if isinstance(shape, list):
++                shape = shape[0]
++            return len(shape) == 4
++        except (AttributeError, RuntimeError):
++            return False
++
++    # ------------------------------------------------------------------
++    # Gradient model construction
++    # ------------------------------------------------------------------
+ 
+     def _create_grad_model(self) -> tf.keras.Model:
+-        """Create a gradient model mapping inputs to both target feature maps and class scores."""
+-        target_layer = self.model.get_layer(self.target_layer_name)
++        """Build auxiliary model that outputs (feature maps, class logits).
++
++        The auxiliary model shares weights with self.model — no extra
++        parameters are introduced.
++
++        Returns:
++            tf.keras.Model: Outputs [feature_map_tensor, predictions_tensor].
++
++        Raises:
++            ValueError: If target_layer_name is not found in the model graph.
++        """
++        # Try to get layer directly from top-level model
++        target_layer = self._get_layer_by_name(self.model, self.target_layer_name)
++        if target_layer is None:
++            raise ValueError(
++                f"Layer '{self.target_layer_name}' not found in model '{self.model.name}'. "
++                "Available layers: "
++                + ", ".join(l.name for l in self.model.layers)
++            )
++
+         return tf.keras.models.Model(
+             inputs=self.model.inputs,
+             outputs=[target_layer.output, self.model.output],
+         )
+ 
++    @staticmethod
++    def _get_layer_by_name(
++        model: tf.keras.Model, name: str
++    ) -> Optional[tf.keras.layers.Layer]:
++        """Recursively search for a layer by name in a potentially nested model."""
++        for layer in model.layers:
++            if layer.name == name:
++                return layer
++            if isinstance(layer, tf.keras.Model):
++                found = GradCAMExplainer._get_layer_by_name(layer, name)
++                if found is not None:
++                    return found
++        return None
++
++    # ------------------------------------------------------------------
++    # Heatmap generation
++    # ------------------------------------------------------------------
++
+     def generate_heatmap(
+         self,
+-        image_tensor: tf.Tensor,
++        image_tensor: Union[tf.Tensor, np.ndarray],
+         class_idx: Optional[int] = None,
+         use_gradcam_plus_plus: bool = False,
++        metadata_tensor: Optional[Union[tf.Tensor, np.ndarray]] = None,
+     ) -> np.ndarray:
+-        """Compute Grad-CAM activation heatmap for a given input image and target class.
++        """Compute a Grad-CAM or Grad-CAM++ activation heatmap.
++
++        Mathematical summary:
++            Standard Grad-CAM:
++                α_k = GAP( ∂S^c / ∂F_k )
++                CAM = ReLU( ∑_k α_k · F_k )
++
++            Grad-CAM++ (2nd/3rd order):
++                α_k^{++} = ∑_{ij} [ (∂²S^c/∂F_{k,ij}²) /
++                             (2·∂²S^c/∂F_{k,ij}² + F_k · ∂³S^c/∂F_{k,ij}³ + ε) ]
++                             · ReLU(∂S^c/∂F_{k,ij})
+ 
+         Args:
+-            image_tensor: Preprocessed image tensor with shape [1, H, W, 3].
+-            class_idx: Target class index. If None, uses top predicted class.
+-            use_gradcam_plus_plus: Whether to use higher-order derivatives (Grad-CAM++).
++            image_tensor: Preprocessed image tensor of shape [1, H, W, 3].
++            class_idx: Target class index. Uses argmax(predictions) if None.
++            use_gradcam_plus_plus: Use higher-order gradients for finer maps.
++            metadata_tensor: Optional metadata array for multimodal models.
++                Shape [1, meta_dim]. If the model expects metadata but this
++                is None, zeros are supplied automatically.
+ 
+         Returns:
+-            np.ndarray: Normalized 2D activation heatmap in range [0, 1].
++            np.ndarray: 2-D normalized heatmap of shape (h, w) with values
++            in [0, 1], where h, w are the spatial dims of the target layer.
+         """
+-        with tf.GradientTape(persistent=True) as tape:
+-            conv_outputs, predictions = self.grad_model(image_tensor)
++        # Ensure batch dimension
++        if isinstance(image_tensor, np.ndarray):
++            image_tensor = tf.constant(image_tensor, dtype=tf.float32)
++        if image_tensor.ndim == 3:
++            image_tensor = tf.expand_dims(image_tensor, 0)
++
++        # Build inputs list (handle multimodal models with >1 input)
++        model_inputs = self._build_model_inputs(image_tensor, metadata_tensor)
++
++        with tf.GradientTape(persistent=use_gradcam_plus_plus) as tape:
++            # Watch feature maps explicitly (not Variables → need watch)
++            tape.watch(image_tensor)
++
++            conv_outputs, predictions = self.grad_model(model_inputs, training=False)
++            tape.watch(conv_outputs)
++
+             if class_idx is None:
+-                class_idx = tf.argmax(predictions[0])
++                class_idx = int(tf.argmax(predictions[0]).numpy())
++
++            # Class score (pre-softmax — use raw logit if available, else softmax prob)
+             loss = predictions[:, class_idx]
+ 
+-        # First-order gradients of class score with respect to feature maps
++        # ---- First-order gradients ∂loss/∂conv_outputs ----
+         grads = tape.gradient(loss, conv_outputs)
+ 
+         if use_gradcam_plus_plus:
+-            # Grad-CAM++: weighting using second and third order gradients
+             grads_2 = tape.gradient(grads, conv_outputs)
+             grads_3 = tape.gradient(grads_2, conv_outputs)
++            del tape
+ 
++            # Denominator: 2·g² + F·g³
+             global_sum = tf.reduce_sum(conv_outputs, axis=(1, 2), keepdims=True)
+             alpha_num = grads_2
+             alpha_denom = 2.0 * grads_2 + grads_3 * global_sum + 1e-7
+             alphas = alpha_num / alpha_denom
+ 
+-            weights = tf.reduce_sum(alphas * tf.maximum(grads, 0), axis=(1, 2), keepdims=True)
++            # Weight per-pixel gradients
++            weights = tf.reduce_sum(
++                alphas * tf.maximum(grads, 0.0), axis=(1, 2), keepdims=True
++            )
+         else:
+-            # Standard Grad-CAM: Global average pooling over gradients
++            del tape
++            # Standard Grad-CAM: α_k = GAP(grads)
+             weights = tf.reduce_mean(grads, axis=(1, 2), keepdims=True)
+ 
+-        del tape
+-
+-        # Weighted combination of forward activation maps
+-        cam = tf.reduce_sum(weights * conv_outputs, axis=-1)[0]
+-
+-        # ReLU: retain only features that positively influence the target class
+-        cam = tf.maximum(cam, 0)
++        # Weighted combination: CAM = ReLU(∑_k α_k · F_k)
++        cam = tf.reduce_sum(weights * conv_outputs, axis=-1)[0]  # (h, w)
++        cam = tf.maximum(cam, 0.0)  # ReLU
+ 
+         # Normalize to [0, 1]
++        cam_min = tf.reduce_min(cam)
+         cam_max = tf.reduce_max(cam)
+-        if cam_max > 0:
+-            cam = cam / cam_max
++        denom = cam_max - cam_min
++        if denom > 1e-8:
++            cam = (cam - cam_min) / denom
++        else:
++            cam = tf.zeros_like(cam)  # Uniform feature map — all zeros
++
++        return cam.numpy().astype(np.float32)
++
++    def _build_model_inputs(
++        self,
++        image_tensor: tf.Tensor,
++        metadata_tensor: Optional[Union[tf.Tensor, np.ndarray]],
++    ) -> Union[tf.Tensor, List[tf.Tensor]]:
++        """Construct the correct input list for single-input or multimodal models.
++
++        Args:
++            image_tensor: Image tensor [1, H, W, 3].
++            metadata_tensor: Optional metadata tensor [1, meta_dim].
+ 
+-        return cam.numpy()
++        Returns:
++            Single tensor (vision-only) or list of tensors (multimodal).
++        """
++        n_inputs = len(self.model.inputs)
++
++        if n_inputs == 1:
++            return image_tensor
++
++        # Multimodal: model expects [image, metadata]
++        if metadata_tensor is None:
++            # Infer metadata dim from model's second input shape
++            meta_dim = self.model.inputs[1].shape[-1] or 10
++            metadata_tensor = tf.zeros([1, meta_dim], dtype=tf.float32)
++            logger.warning(
++                "GradCAM: Multimodal model detected but no metadata_tensor provided. "
++                "Using zero-filled metadata of shape [1, %d].", meta_dim
++            )
++        elif isinstance(metadata_tensor, np.ndarray):
++            metadata_tensor = tf.constant(metadata_tensor, dtype=tf.float32)
++
++        return [image_tensor, metadata_tensor]
++
++    # ------------------------------------------------------------------
++    # Convenience: get predicted class + probabilities
++    # ------------------------------------------------------------------
++
++    def predict(
++        self,
++        image_tensor: Union[tf.Tensor, np.ndarray],
++        metadata_tensor: Optional[Union[tf.Tensor, np.ndarray]] = None,
++    ) -> Tuple[int, np.ndarray]:
++        """Run forward pass and return (class_idx, class_probabilities).
++
++        Args:
++            image_tensor: Preprocessed image [1, H, W, 3] or [H, W, 3].
++            metadata_tensor: Optional metadata [1, meta_dim].
++
++        Returns:
++            Tuple of (predicted_class_index, probabilities_array).
++        """
++        if isinstance(image_tensor, np.ndarray):
++            image_tensor = tf.constant(image_tensor, dtype=tf.float32)
++        if image_tensor.ndim == 3:
++            image_tensor = tf.expand_dims(image_tensor, 0)
++
++        model_inputs = self._build_model_inputs(image_tensor, metadata_tensor)
++        preds = self.model(model_inputs, training=False)
++        probs = preds.numpy()[0]
++        return int(np.argmax(probs)), probs
++
++    # ------------------------------------------------------------------
++    # Available layer names (utility)
++    # ------------------------------------------------------------------
++
++    def list_conv_layers(self) -> List[str]:
++        """Return names of all 4-D convolutional layers in the model."""
++        names: List[str] = []
++        for layer in self.model.layers:
++            if self._is_conv_layer(layer):
++                names.append(layer.name)
++            if isinstance(layer, tf.keras.Model):
++                for sub in layer.layers:
++                    if self._is_conv_layer(sub):
++                        names.append(sub.name)
++        return names
+diff --git a/src/explainability/visualization.py b/src/explainability/visualization.py
+new file mode 100644
+index 0000000..260aae3
+--- /dev/null
++++ b/src/explainability/visualization.py
+@@ -0,0 +1,126 @@
++"""Visualization utilities for DermaAI XAI.
++
++Provides a single helper ``plot_prediction_panel`` that creates a three‑panel
++figure:
++
++* Original image
++* Grad‑CAM heatmap (colored)
++* Overlay (image + heatmap)
++
++and a bar‑chart of class probabilities. The figure is returned as a Matplotlib
++``Figure`` object and can optionally be saved to disk.
++"""
++
++from __future__ import annotations
++
++import os
++import pathlib
++from typing import List, Optional
++
++import matplotlib.pyplot as plt
++import numpy as np
++
++
++def _apply_colormap(heatmap: np.ndarray, cmap: str = "jet") -> np.ndarray:
++    """Convert a normalized (H, W) heatmap to an RGB image using Matplotlib's colormap.
++
++    Args:
++        heatmap: 2‑D array with values in ``[0, 1]``.
++        cmap: Name of Matplotlib colormap (default ``jet``).
++
++    Returns:
++        RGB ``uint8`` array of shape ``(H, W, 3)``.
++    """
++    import matplotlib.cm as cm
++
++    cmap_obj = cm.get_cmap(cmap)
++    colored = cmap_obj(heatmap)[:, :, :3]  # drop alpha channel
++    return (colored * 255).astype(np.uint8)
++
++
++def plot_prediction_panel(
++    image: np.ndarray,
++    heatmap: np.ndarray,
++    overlay: np.ndarray,
++    class_probs: np.ndarray,
++    class_names: Optional[List[str]] = None,
++    predicted_class: Optional[int] = None,
++    save_path: Optional[str] = None,
++) -> plt.Figure:
++    """Create a publication‑ready figure showing model prediction and explanation.
++
++    Parameters
++    ----------
++    image: np.ndarray
++        Original RGB image, ``[H, W, 3]``, values in ``[0, 255]`` or ``[0, 1]``.
++    heatmap: np.ndarray
++        Normalised heatmap ``[H, W]`` in ``[0, 1]``.
++    overlay: np.ndarray
++        Blended RGB image (same shape as ``image``) produced by
++        ``HeatmapVisualizer.overlay_heatmap``.
++    class_probs: np.ndarray
++        1‑D array of class probabilities that sum to 1.
++    class_names: list[str] | None
++        Human‑readable class labels. If ``None`` indices are shown.
++    predicted_class: int | None
++        Index of the predicted class. If ``None`` the argmax of ``class_probs`` is used.
++    save_path: str | None
++        If provided, the figure is saved to this location (PNG format).
++
++    Returns
++    -------
++    matplotlib.figure.Figure
++        The generated Matplotlib figure.
++    """
++    if predicted_class is None:
++        predicted_class = int(np.argmax(class_probs))
++
++    # Ensure proper dtype/range for display
++    def _norm_uint8(arr: np.ndarray) -> np.ndarray:
++        if arr.dtype.kind == "f":
++            arr = np.clip(arr * 255.0, 0, 255)
++        return arr.astype(np.uint8)
++
++    img_disp = _norm_uint8(image)
++    overlay_disp = _norm_uint8(overlay)
++    heat_rgb = _apply_colormap(heatmap)
++
++    fig = plt.figure(figsize=(12, 4))
++    gs = fig.add_gridspec(2, 3, height_ratios=[3, 1])
++
++    ax_img = fig.add_subplot(gs[0, 0])
++    ax_img.imshow(img_disp)
++    ax_img.axis("off")
++    ax_img.set_title("Original")
++
++    ax_heat = fig.add_subplot(gs[0, 1])
++    ax_heat.imshow(heat_rgb)
++    ax_heat.axis("off")
++    ax_heat.set_title("Grad‑CAM heatmap")
++
++    ax_overlay = fig.add_subplot(gs[0, 2])
++    ax_overlay.imshow(overlay_disp)
++    ax_overlay.axis("off")
++    ax_overlay.set_title("Overlay")
++
++    # Bar chart of probabilities
++    ax_bar = fig.add_subplot(gs[1, :])
++    labels = (
++        class_names if class_names is not None else [str(i) for i in range(len(class_probs))]
++    )
++    ax_bar.bar(labels, class_probs, color="steelblue")
++    ax_bar.set_ylabel("Probability")
++    pred_label = labels[predicted_class]
++    ax_bar.set_title(f"Predicted: {pred_label} ({class_probs[predicted_class]:.2%})")
++    ax_bar.set_ylim(0, 1)
++    ax_bar.tick_params(axis="x", rotation=45)
++
++    fig.tight_layout()
++
++    if save_path:
++        pathlib.Path(save_path).parent.mkdir(parents=True, exist_ok=True)
++        fig.savefig(save_path, dpi=200, bbox_inches="tight")
++
++    return fig
++
++# End of file
+diff --git a/src/explainability/visualizer.py b/src/explainability/visualizer.py
+index 87bb77e..5905f6f 100644
+--- a/src/explainability/visualizer.py
++++ b/src/explainability/visualizer.py
+@@ -1,59 +1,367 @@
+-"""Heatmap Overlay and Visual Inspection Module for Explainable AI."""
++"""Heatmap Overlay and Prediction Visualization Module for Explainable AI.
++
++Provides:
++  - HeatmapVisualizer: Alpha-blends Grad-CAM heatmaps onto dermoscopic images.
++  - plot_prediction_panel: Multi-panel figure (original | heatmap | overlay + bar chart).
++  - save_explanation_artifacts: Saves all explanation outputs to a structured directory.
++
++Design Principles:
++  - All visual outputs include a disclaimer that model outputs are NOT diagnoses.
++  - Functions are stateless (static/module-level) for easy unit testing.
++  - OpenCV (cv2) is used for colormap + blending; matplotlib for panel figures.
++"""
++
++from __future__ import annotations
++
++import logging
++from pathlib import Path
++from typing import Dict, List, Optional, Sequence, Tuple, Union
+ 
+-from typing import Tuple
+ import cv2
++import matplotlib
++matplotlib.use("Agg")  # Non-interactive backend — safe for servers
++import matplotlib.pyplot as plt
++import matplotlib.patches as mpatches
+ import numpy as np
+ 
++logger = logging.getLogger(__name__)
++
++# Disclaimer appended to all explanation figures
++_DISCLAIMER = (
++    "⚠  Research tool only. Model output is NOT a confirmed medical diagnosis.\n"
++    "Consult a qualified dermatologist for clinical assessment."
++)
++
+ 
+ class HeatmapVisualizer:
+-    """Superimposes Grad-CAM heatmaps onto dermoscopy images with configurable opacity and colormaps."""
++    """Superimposes Grad-CAM heatmaps onto dermoscopy images with configurable opacity and colormaps.
++
++    Mathematical blending:
++        overlay = α · colorize(heatmap) + (1 - α) · original_image
++    where α is the ``alpha`` transparency parameter.
++    """
++
++    # Supported OpenCV colormaps for the heatmap
++    COLORMAP_OPTIONS: Dict[str, int] = {
++        "jet": cv2.COLORMAP_JET,
++        "hot": cv2.COLORMAP_HOT,
++        "plasma": cv2.COLORMAP_PLASMA,
++        "viridis": cv2.COLORMAP_VIRIDIS,
++        "inferno": cv2.COLORMAP_INFERNO,
++        "turbo": cv2.COLORMAP_TURBO,
++    }
+ 
+     @staticmethod
+     def overlay_heatmap(
+         image: np.ndarray,
+         heatmap: np.ndarray,
+         alpha: float = 0.45,
+-        colormap: int = cv2.COLORMAP_JET,
++        colormap: Union[str, int] = "jet",
+     ) -> np.ndarray:
+-        """Blend a 2D activation heatmap over an RGB dermoscopic image.
++        """Blend a 2-D activation heatmap over an RGB dermoscopic image.
+ 
+         Args:
+-            image: Original RGB image array [H, W, 3] with values in [0, 255] or [0, 1].
+-            heatmap: 2D normalized activation map [h, w] with values in [0, 1].
+-            alpha: Transparency factor of the colored heatmap overlay (0.0 to 1.0).
+-            colormap: OpenCV colormap constant (default: COLORMAP_JET).
++            image: Original RGB image array [H, W, 3]. Values may be [0, 1] float
++                or [0, 255] uint8.
++            heatmap: 2-D normalized activation map [h, w] with values in [0, 1].
++            alpha: Heatmap transparency factor (0.0 = invisible, 1.0 = full overlay).
++            colormap: Colormap name string ('jet', 'hot', 'plasma', …) or an
++                OpenCV COLORMAP_* constant integer.
+ 
+         Returns:
+-            np.ndarray: Blended RGB image of uint8 format [H, W, 3].
++            np.ndarray: RGB uint8 blended image of shape [H, W, 3].
+         """
+-        # Ensure image is uint8 in range [0, 255]
+-        if image.dtype in [np.float32, np.float64]:
++        # ---- Normalize image to uint8 -------------------------------------------
++        if image.dtype in (np.float32, np.float64):
+             orig_uint8 = np.clip(image * 255.0, 0, 255).astype(np.uint8)
+         else:
+-            orig_uint8 = image.copy()
++            orig_uint8 = np.asarray(image, dtype=np.uint8).copy()
+ 
+         h, w = orig_uint8.shape[:2]
+ 
+-        # Resize heatmap to match image spatial resolution
+-        resized_cam = cv2.resize(heatmap, (w, h), interpolation=cv2.INTER_LINEAR)
+-        cam_uint8 = np.uint8(255 * np.clip(resized_cam, 0, 1))
++        # ---- Resolve colormap -------------------------------------------------------
++        if isinstance(colormap, str):
++            cv_cmap = HeatmapVisualizer.COLORMAP_OPTIONS.get(
++                colormap.lower(), cv2.COLORMAP_JET
++            )
++        else:
++            cv_cmap = int(colormap)
++
++        # ---- Resize heatmap to match image spatial resolution ----------------------
++        heatmap_clipped = np.clip(heatmap, 0.0, 1.0).astype(np.float32)
++        cam_uint8 = np.uint8(255 * cv2.resize(heatmap_clipped, (w, h), interpolation=cv2.INTER_LINEAR))
+ 
+-        # Apply colormap to generate colored thermal overlay (BGR)
+-        colored_bgr = cv2.applyColorMap(cam_uint8, colormap)
++        # ---- Apply colormap → BGR → RGB --------------------------------------------
++        colored_bgr = cv2.applyColorMap(cam_uint8, cv_cmap)
+         colored_rgb = cv2.cvtColor(colored_bgr, cv2.COLOR_BGR2RGB)
+ 
+-        # Alpha blend original image with thermal map
++        # ---- Alpha blend: overlay = α·color + (1-α)·orig --------------------------
+         blended = cv2.addWeighted(orig_uint8, 1.0 - alpha, colored_rgb, alpha, 0)
+-        return blended
++        return blended  # uint8, RGB
+ 
+     @staticmethod
+     def extract_salient_contour(
+         heatmap: np.ndarray,
+         target_size: Tuple[int, int],
+         threshold: float = 0.5,
+-    ) -> np.ndarray:
+-        """Extract boundary contours of the most salient lesion regions indicated by the heatmap."""
+-        resized_cam = cv2.resize(heatmap, target_size, interpolation=cv2.INTER_LINEAR)
+-        binary_mask = (resized_cam >= threshold).astype(np.uint8) * 255
+-        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+-        return contours
++    ) -> List:
++        """Extract boundary contours of the most salient lesion regions.
++
++        Args:
++            heatmap: 2-D normalized activation map [h, w] in [0, 1].
++            target_size: (width, height) to resize heatmap before thresholding.
++            threshold: Activation threshold above which pixels are considered salient.
++
++        Returns:
++            List of contour arrays (from cv2.findContours).
++        """
++        resized = cv2.resize(heatmap.astype(np.float32), target_size, interpolation=cv2.INTER_LINEAR)
++        binary = (resized >= threshold).astype(np.uint8) * 255
++        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
++        return list(contours)
++
++    @staticmethod
++    def colorize_heatmap(heatmap: np.ndarray, colormap: str = "jet") -> np.ndarray:
++        """Convert a 2-D float heatmap to an RGB uint8 image using a colormap.
++
++        Args:
++            heatmap: Normalized float array [h, w] in [0, 1].
++            colormap: Colormap name string.
++
++        Returns:
++            np.ndarray: RGB uint8 array of shape [h, w, 3].
++        """
++        cv_cmap = HeatmapVisualizer.COLORMAP_OPTIONS.get(colormap.lower(), cv2.COLORMAP_JET)
++        cam_uint8 = np.uint8(255 * np.clip(heatmap, 0.0, 1.0))
++        bgr = cv2.applyColorMap(cam_uint8, cv_cmap)
++        return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
++
++
++# ---------------------------------------------------------------------------
++# Module-level visualization functions
++# ---------------------------------------------------------------------------
++
++def plot_prediction_panel(
++    image: np.ndarray,
++    heatmap: np.ndarray,
++    overlay: np.ndarray,
++    class_probs: np.ndarray,
++    class_names: Sequence[str],
++    predicted_class: str,
++    confidence: float,
++    save_path: Optional[Union[str, Path]] = None,
++    image_id: str = "sample",
++) -> plt.Figure:
++    """Create a 4-panel prediction explanation figure.
++
++    Layout::
++        [Original Image] [Grad-CAM Heatmap] [Overlay] [Class Probability Bar Chart]
++
++    Args:
++        image: Original RGB image [H, W, 3] in [0, 255] uint8 or [0, 1] float.
++        heatmap: 2-D float Grad-CAM map [h, w] in [0, 1].
++        overlay: RGB uint8 blended image [H, W, 3].
++        class_probs: Softmax probabilities array of length n_classes.
++        class_names: Sequence of class name strings (length n_classes).
++        predicted_class: Human-readable name of the top predicted class.
++        confidence: Confidence score (0–1) of the top predicted class.
++        save_path: Optional file path (.png/.pdf) to save the figure.
++        image_id: Identifier used in the figure title.
++
++    Returns:
++        plt.Figure: The composed matplotlib figure object.
++    """
++    # Normalize image for display
++    if image.dtype in (np.float32, np.float64):
++        display_img = np.clip(image, 0.0, 1.0)
++    else:
++        display_img = image.astype(np.uint8)
++
++    # Resize heatmap to image size for display
++    h, w = display_img.shape[:2]
++    heatmap_display = cv2.resize(heatmap.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
++
++    fig = plt.figure(figsize=(18, 5), constrained_layout=True)
++    gs = fig.add_gridspec(1, 4, wspace=0.08)
++
++    # ---- Panel 1: Original Image ------------------------------------------------
++    ax1 = fig.add_subplot(gs[0, 0])
++    ax1.imshow(display_img)
++    ax1.set_title("Original Image", fontsize=12, fontweight="bold")
++    ax1.axis("off")
++
++    # ---- Panel 2: Grad-CAM Heatmap ----------------------------------------------
++    ax2 = fig.add_subplot(gs[0, 1])
++    im = ax2.imshow(heatmap_display, cmap="jet", vmin=0, vmax=1)
++    ax2.set_title("Grad-CAM Heatmap", fontsize=12, fontweight="bold")
++    ax2.axis("off")
++    plt.colorbar(im, ax=ax2, fraction=0.046, pad=0.04, label="Activation")
++
++    # ---- Panel 3: Overlay -------------------------------------------------------
++    ax3 = fig.add_subplot(gs[0, 2])
++    ax3.imshow(overlay)
++    ax3.set_title("Heatmap Overlay", fontsize=12, fontweight="bold")
++    ax3.axis("off")
++
++    # ---- Panel 4: Class Probability Bar Chart -----------------------------------
++    ax4 = fig.add_subplot(gs[0, 3])
++    n_classes = len(class_names)
++    colors = ["#e74c3c" if cn == predicted_class else "#3498db" for cn in class_names]
++    bars = ax4.barh(
++        range(n_classes),
++        class_probs[:n_classes],
++        color=colors,
++        edgecolor="white",
++        linewidth=0.5,
++    )
++    ax4.set_yticks(range(n_classes))
++    ax4.set_yticklabels(class_names, fontsize=9)
++    ax4.set_xlim(0, 1.05)
++    ax4.set_xlabel("Probability", fontsize=10)
++    ax4.set_title("Class Probabilities", fontsize=12, fontweight="bold")
++    ax4.axvline(x=0.5, color="gray", linestyle="--", linewidth=0.8, alpha=0.5)
++
++    # Annotate bar values
++    for bar, prob in zip(bars, class_probs[:n_classes]):
++        ax4.text(
++            bar.get_width() + 0.01,
++            bar.get_y() + bar.get_height() / 2.0,
++            f"{prob:.3f}",
++            va="center",
++            fontsize=8,
++        )
++
++    # Legend
++    pred_patch = mpatches.Patch(color="#e74c3c", label=f"Predicted: {predicted_class}")
++    other_patch = mpatches.Patch(color="#3498db", label="Other classes")
++    ax4.legend(handles=[pred_patch, other_patch], fontsize=8, loc="lower right")
++
++    # ---- Figure Title & Disclaimer ----------------------------------------------
++    fig.suptitle(
++        f"DermaAI Explanation  |  ID: {image_id}  |  "
++        f"Predicted: {predicted_class}  ({confidence * 100:.1f}% confidence)",
++        fontsize=13,
++        fontweight="bold",
++        y=1.01,
++    )
++    fig.text(
++        0.5, -0.04,
++        _DISCLAIMER,
++        ha="center",
++        fontsize=8,
++        color="#c0392b",
++        style="italic",
++        wrap=True,
++    )
++
++    if save_path is not None:
++        save_path = Path(save_path)
++        save_path.parent.mkdir(parents=True, exist_ok=True)
++        fig.savefig(save_path, dpi=120, bbox_inches="tight")
++        logger.info("Prediction panel saved → %s", save_path)
++
++    return fig
++
++
++def save_explanation_artifacts(
++    image: np.ndarray,
++    heatmap: np.ndarray,
++    overlay: np.ndarray,
++    class_probs: np.ndarray,
++    class_names: Sequence[str],
++    predicted_class: str,
++    confidence: float,
++    output_dir: Union[str, Path],
++    image_id: str = "sample",
++    extra_meta: Optional[Dict] = None,
++) -> Dict[str, Path]:
++    """Save all explanation artifacts to a structured directory.
++
++    Saved files::
++        <output_dir>/<image_id>/
++            original.png
++            heatmap.png
++            overlay.png
++            panel.png
++            metadata.json
++
++    Args:
++        image: Original RGB image [H, W, 3].
++        heatmap: 2-D float Grad-CAM map [h, w] in [0, 1].
++        overlay: RGB uint8 blended image [H, W, 3].
++        class_probs: Softmax probabilities array.
++        class_names: Sequence of class name strings.
++        predicted_class: Top predicted class name.
++        confidence: Confidence score of top class.
++        output_dir: Root directory for saving artifacts.
++        image_id: Unique identifier for this explanation.
++        extra_meta: Optional extra metadata dict to include in metadata.json.
++
++    Returns:
++        Dict mapping artifact name → Path of saved file.
++    """
++    import json
++
++    out = Path(output_dir) / image_id
++    out.mkdir(parents=True, exist_ok=True)
++    saved: Dict[str, Path] = {}
++
++    # -- Original image ----------------------------------------------------------
++    orig_path = out / "original.png"
++    if image.dtype in (np.float32, np.float64):
++        orig_uint8 = np.clip(image * 255, 0, 255).astype(np.uint8)
++    else:
++        orig_uint8 = image.astype(np.uint8)
++    cv2.imwrite(str(orig_path), cv2.cvtColor(orig_uint8, cv2.COLOR_RGB2BGR))
++    saved["original"] = orig_path
++
++    # -- Heatmap -----------------------------------------------------------------
++    heatmap_path = out / "heatmap.png"
++    h, w = orig_uint8.shape[:2]
++    heatmap_resized = cv2.resize(heatmap.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
++    heatmap_colored = HeatmapVisualizer.colorize_heatmap(heatmap_resized, colormap="jet")
++    cv2.imwrite(str(heatmap_path), cv2.cvtColor(heatmap_colored, cv2.COLOR_RGB2BGR))
++    saved["heatmap"] = heatmap_path
++
++    # -- Overlay -----------------------------------------------------------------
++    overlay_path = out / "overlay.png"
++    cv2.imwrite(str(overlay_path), cv2.cvtColor(overlay.astype(np.uint8), cv2.COLOR_RGB2BGR))
++    saved["overlay"] = overlay_path
++
++    # -- Prediction panel --------------------------------------------------------
++    panel_path = out / "panel.png"
++    fig = plot_prediction_panel(
++        image=image,
++        heatmap=heatmap,
++        overlay=overlay,
++        class_probs=class_probs,
++        class_names=class_names,
++        predicted_class=predicted_class,
++        confidence=confidence,
++        save_path=panel_path,
++        image_id=image_id,
++    )
++    plt.close(fig)
++    saved["panel"] = panel_path
++
++    # -- Metadata JSON -----------------------------------------------------------
++    meta_path = out / "metadata.json"
++    meta = {
++        "image_id": image_id,
++        "predicted_class": predicted_class,
++        "confidence": float(confidence),
++        "class_probabilities": {
++            name: float(prob)
++            for name, prob in zip(class_names, class_probs[: len(class_names)])
++        },
++        "disclaimer": _DISCLAIMER,
++    }
++    if extra_meta:
++        meta.update(extra_meta)
++
++    with open(meta_path, "w", encoding="utf-8") as f:
++        json.dump(meta, f, indent=2, ensure_ascii=False)
++    saved["metadata"] = meta_path
++
++    logger.info("Explanation artifacts saved to %s", out)
++    return saved
+diff --git a/tests/test_integration.py b/tests/test_integration.py
+new file mode 100644
+index 0000000..d25f88d
+--- /dev/null
++++ b/tests/test_integration.py
+@@ -0,0 +1,82 @@
++import asyncio
++import base64
++import io
++import os
++from pathlib import Path
++import pytest
++import httpx
++from PIL import Image
++
++# Helper to create a simple red square PNG image in memory
++def create_test_image() -> bytes:
++    img = Image.new('RGB', (224, 224), color='red')
++    buf = io.BytesIO()
++    img.save(buf, format='PNG')
++    return buf.getvalue()
++
++@pytest.fixture(scope='session')
++def anyio_backend():
++    return 'asyncio'
++
++@pytest.fixture(scope='session')
++async def client():
++    async with httpx.AsyncClient(base_url='http://localhost:8000') as c:
++        yield c
++
++@pytest.fixture(scope='session')
++def test_image_path(tmp_path_factory):
++    # Write the image to a temporary file
++    img_bytes = create_test_image()
++    path = tmp_path_factory.mktemp('data') / 'test.png'
++    path.write_bytes(img_bytes)
++    return path
++
++@pytest.fixture(scope='session')
++def invalid_file_path(tmp_path_factory):
++    # Write a simple text file
++    path = tmp_path_factory.mktemp('data') / 'invalid.txt'
++    path.write_text('this is not an image')
++    return path
++
++@pytest.mark.anyio
++async def test_successful_prediction(client, test_image_path):
++    with open(test_image_path, 'rb') as f:
++        files = {'file': ('test.png', f, 'image/png')}
++        resp = await client.post('/api/predict', files=files)
++    assert resp.status_code == 200
++    json = resp.json()
++    # Verify required fields
++    assert 'top_prediction' in json
++    assert 'predictions' in json
++    assert isinstance(json['predictions'], list)
++    # Grad-CAM should be present by default
++    assert 'gradcam_base64' in json
++    assert json['gradcam_base64'] is not None
++
++@pytest.mark.anyio
++async def test_invalid_image_handling(client, invalid_file_path):
++    with open(invalid_file_path, 'rb') as f:
++        files = {'file': ('invalid.txt', f, 'text/plain')}
++        resp = await client.post('/api/predict', files=files)
++    # Should return 400 Bad Request due to unsupported MIME type
++    assert resp.status_code == 400
++    json = resp.json()
++    assert 'detail' in json
++
++@pytest.mark.anyio
++async def test_missing_file_field(client):
++    # No file provided
++    resp = await client.post('/api/predict')
++    # FastAPI should report validation error (422)
++    assert resp.status_code == 422
++
++@pytest.mark.anyio
++async def test_gradcam_disabled(client, test_image_path):
++    with open(test_image_path, 'rb') as f:
++        files = {'file': ('test.png', f, 'image/png')}
++        params = {'include_gradcam': 'false'}
++        resp = await client.post('/api/predict', params=params, files=files)
++    assert resp.status_code == 200
++    json = resp.json()
++    # Grad-CAM disabled should return null
++    assert json.get('gradcam_base64') is None
+diff --git a/tests/test_xai.py b/tests/test_xai.py
+new file mode 100644
+index 0000000..33b9e95
+--- /dev/null
++++ b/tests/test_xai.py
+@@ -0,0 +1,87 @@
++"""Tests for XAI utilities in DermaAI.
++
++Covers:
++ * GradCAM heatmap shape and range
++ * Heatmap overlay dimensions
++ * DermaExplainer high‑level workflow (prediction & disclaimer)
++ * Visualization panel creation
++"""
++
++import os
++import json
++import numpy as np
++import tensorflow as tf
++
++from src.explainability.gradcam import GradCAMExplainer
++from src.explainability.visualizer import HeatmapVisualizer
++from src.explainability.explainer import DermaExplainer, ExplanationResult
++from src.explainability.visualization import plot_prediction_panel
++
++# Simple tiny model for deterministic test – single Conv2D + GlobalAvg + Dense
++def _build_test_model(num_classes: int = 3, input_shape=(32, 32, 3)) -> tf.keras.Model:
++    inputs = tf.keras.Input(shape=input_shape)
++    x = tf.keras.layers.Conv2D(4, (3, 3), activation="relu", name="conv_test")(inputs)
++    x = tf.keras.layers.GlobalAveragePooling2D()(x)
++    outputs = tf.keras.layers.Dense(num_classes, activation="softmax", name="predictions")(x)
++    return tf.keras.Model(inputs, outputs)
++
++
++def test_gradcam_heatmap_shape_and_range(tmp_path):
++    model = _build_test_model()
++    expl = GradCAMExplainer(model)
++    # Random image tensor
++    img = np.random.rand(1, 32, 32, 3).astype(np.float32)
++    heatmap = expl.generate_heatmap(img)
++    assert heatmap.shape == (30, 30)  # conv layer reduces size by 2 (valid padding default)
++    assert np.all(heatmap >= 0) and np.all(heatmap <= 1)
++
++
++def test_heatmap_overlay_dimensions(tmp_path):
++    # Dummy image and heatmap
++    img = np.random.rand(32, 32, 3)
++    heat = np.random.rand(30, 30)
++    overlay = HeatmapVisualizer.overlay_heatmap(img, heat)
++    assert overlay.shape == img.shape
++    assert overlay.dtype == np.uint8
++
++
++def test_derma_explainer_full_flow(tmp_path):
++    model = _build_test_model()
++    checkpoint_path = tmp_path / "model.keras"
++    model.save(str(checkpoint_path), save_format="keras")
++    explainer = DermaExplainer(str(checkpoint_path), class_names=["A", "B", "C"])
++    # Create a small dummy image file for the explainer to load
++    img_arr = (np.random.rand(32, 32, 3) * 255).astype(np.uint8)
++    img_path = tmp_path / "img.png"
++    tf.keras.utils.save_img(str(img_path), img_arr)
++    result: ExplanationResult = explainer.explain(str(img_path))
++    # Basic sanity checks
++    assert isinstance(result, ExplanationResult)
++    assert result.heatmap.shape[0] > 0
++    assert result.overlay.shape == img_arr.shape
++    assert result.disclaimer.startswith("⚠")
++    # Save explanation and verify artefacts
++    out_dir = tmp_path / "out"
++    explainer.save_explanation(result, str(out_dir))
++    base = os.path.splitext(os.path.basename(str(img_path)))[0]
++    assert (out_dir / base / "overlay.png").exists()
++    manifest = json.loads((out_dir / base / "manifest.json").read_text())
++    assert manifest["predicted_class_name"] in ["A", "B", "C"]
++
++
++def test_plot_prediction_panel(tmp_path):
++    img = np.random.rand(32, 32, 3)
++    heat = np.random.rand(30, 30)
++    overlay = HeatmapVisualizer.overlay_heatmap(img, heat)
++    probs = np.array([0.1, 0.7, 0.2])
++    fig = plot_prediction_panel(
++        image=img,
++        heatmap=heat,
++        overlay=overlay,
++        class_probs=probs,
++        class_names=["A", "B", "C"],
++        predicted_class=1,
++        save_path=str(tmp_path / "panel.png"),
++    )
++    assert fig is not None
++    assert (tmp_path / "panel.png").exists()
+-- 
+2.49.0.windows.1
+
