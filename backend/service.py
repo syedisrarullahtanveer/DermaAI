@@ -1,9 +1,31 @@
 """Model Inference Service Orchestrator for DermaAI Backend."""
 
 import base64
+import cv2
 import io
 import time
-from typing import Dict, List, Optional, Tuple
+import os
+
+# Existing imports ... (the top part will be inserted after the import statements)
+# Insert after line 7 (which currently is "from typing import Dict, List, Optional, Tuple")
+
+
+import numpy as np
+import tensorflow as tf
+from PIL import Image
+
+from src.models.transfer_models import build_transfer_model
+from src.preprocessing.image_cleaner import DullRazorCleaner, GrayWorldColorConstancy
+from src.explainability.gradcam import GradCAMExplainer
+from src.explainability.visualizer import HeatmapVisualizer
+from src.utils import setup_logger
+import io
+import time
+import os
+
+# Existing imports ... (the top part will be inserted after the import statements)
+# Insert after line 7 (which currently is "from typing import Dict, List, Optional, Tuple")
+
 import cv2
 import numpy as np
 from PIL import Image

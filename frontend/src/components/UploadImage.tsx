@@ -4,7 +4,7 @@ import { Upload } from 'lucide-react';
 import axios from 'axios';
 
 // Adjust the base URL to match the FastAPI backend (assuming localhost:8000)
-const API_BASE = 'http://localhost:8000';
+    const API_BASE = 'http://localhost:8000/api';
 
 interface Props {
   onResult?: (data: any) => void; // callback to parent with prediction result

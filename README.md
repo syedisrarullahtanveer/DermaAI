@@ -1,124 +1,94 @@
-# DermaAI: Intelligent Skin Disease Detection System
+# DermaAI
 
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange.svg)](https://tensorflow.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109%2B-green.svg)](https://fastapi.tiangolo.com/)
-[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/Status-Active%20Development-success.svg)]()
+**DermaAI – Intelligent Skin Disease Detection**
 
-> **DermaAI** is an advanced, research-oriented deep learning system engineered for multi-class skin lesion classification and clinical diagnostic decision support. It combines modern computer vision architectures (ResNet, EfficientNet, MobileNet), Convolutional Block Attention Modules (CBAM), multimodal tabular metadata fusion, and Explainable AI (Grad-CAM/Grad-CAM++) into a production-ready web platform.
+DermaAI is an open‑source research prototype that combines deep learning, explainable AI (Grad‑CAM), and a modern web dashboard to assist clinicians and researchers in analyzing dermoscopic images.
 
----
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+- [Dataset](#dataset)
+- [Model Methodology](#model-methodology)
+- [Experimental Results](#experimental-results)
+- [API Documentation](#api-documentation)
+- [Screenshots](#screenshots)
+- [Limitations & Ethical Considerations](#limitations--ethical-considerations)
+- [Deployment](#deployment)
+- [Development & Testing](#development--testing)
+- [Contributing](#contributing)
+- [License](#license)
 
-## 🌟 Key Highlights & Architectural Features
+## Overview
+DermaAI provides a **FastAPI** backend that:
+- Accepts dermoscopic image uploads.
+- Performs pre‑processing (hair removal, color constancy).
+- Runs an EfficientNet‑B0 backbone with CBAM/SE attention modules.
+- Returns top‑k predictions, confidence scores, and a Grad‑CAM heatmap.
 
-- **7-Class Lesion Taxonomy (HAM10000 Benchmark)**:
-  - `MEL`: Melanoma *(Critical)*
-  - `BCC`: Basal Cell Carcinoma *(High)*
-  - `AKIEC`: Actinic Keratoses and Intraepithelial Carcinoma *(High)*
-  - `BKL`: Benign Keratosis-like Lesions *(Low)*
-  - `DF`: Dermatofibroma *(Low)*
-  - `VASC`: Vascular Lesions *(Low)*
-  - `NV`: Melanocytic Nevi *(Low)*
-- **Advanced Preprocessing Engine**:
-  - **DullRazor Algorithm**: Morphological black-hat filtering and bi-cubic inpainting for complete artifact and hair occlusion elimination.
-  - **Color Constancy**: Gray World illumination normalization to harmonize dermoscopic imaging variations across different lighting sources.
-- **Deep Architecture Suite**:
-  - Baseline modular Deep CNN with residual connections and spatial regularization.
-  - Transfer learning backbones: **ResNet50**, **EfficientNetB0**, and **MobileNetV2**.
-  - **CBAM Attention**: Channel and Spatial Attention mechanisms focusing on clinically distinctive lesion borders and pigment patterns.
-  - **Multimodal Fusion**: Dual-branch architecture merging high-level visual representations with clinical tabular features (patient age, sex, anatomical site).
-- **Explainable AI (XAI)**:
-  - Real-time **Grad-CAM** and **Grad-CAM++** heatmap synthesis for clinical transparency and localized diagnostic justification.
-- **Full-Stack Ecosystem**:
-  - **FastAPI Backend**: Asynchronous inference pipeline, strict Pydantic input/output schemas, and OpenAPI documentation.
-  - **Frontend Dashboard**: Medical-grade diagnostic UI with real-time probability charts, lesion zoom, and Grad-CAM opacity controls.
-- **Robustness & Engineering**:
-  - Patient-aware stratified dataset partitioning preventing patient overlap leakage.
-  - Focal loss and class-weighted cross-entropy addressing severe class imbalance.
+The **React + Vite** frontend offers a responsive medical‑style dashboard (blue‑and‑white theme) with:
+- Image upload & preview.
+- Real‑time inference results.
+- Class‑wise probability bars.
+- Grad‑CAM visualisation.
+- Model information, about page, and disclaimer.
 
----
+> **⚠️ Disclaimer:** DermaAI is a research prototype and **does not provide medical diagnoses**. Results are for educational and experimental purposes only.
 
-## 📂 Project Architecture
+## Features
+- End‑to‑end inference pipeline with explainability.
+- Robust API with validation and error handling.
+- Automated CI pipeline (GitHub Actions) running unit, integration and performance tests.
+- Full documentation and reproducible experiment reports.
 
-```
-DermaAI/
-├── dataset/                  # Dataset specifications and storage guides
-│   ├── raw/                  # Raw HAM10000/ISIC dermoscopy images (git-ignored)
-│   ├── processed/            # Cleaned, hair-removed, normalized images (git-ignored)
-│   └── metadata/             # Clinical metadata CSV tables
-├── configs/                  # Centralized YAML hyperparameter and model configs
-├── notebooks/                # Exploratory Data Analysis and research prototyping
-├── src/                      # Production Python package
-│   ├── data/                 # Data loaders, patient splitting, tf.data pipelines
-│   ├── preprocessing/        # DullRazor, color constancy, Albumentations
-│   ├── models/               # Baseline CNN, Transfer suite, CBAM Attention, Fusion
-│   ├── training/             # Loss functions (Focal Loss), trainer, callbacks
-│   ├── evaluation/           # Multiclass metrics, ROC curves, Confusion Matrix
-│   ├── explainability/       # Grad-CAM and Grad-CAM++ localization engines
-│   └── utils.py              # System logger, reproducibility seeds, device utils
-├── backend/                  # FastAPI inference REST API service
-├── frontend/                 # Interactive medical-grade clinical dashboard
-├── tests/                    # Pytest test suite for data, models, XAI, and API
-├── docs/                     # Architectural, research, and API documentation
-└── scripts/                  # CLI utilities for verification, training, and evaluation
-```
-
----
-
-## 🚀 Quick Start Guide
-
-### 1. Environment Setup
-
+## Installation
+See the full [Installation Guide](docs/installation.md) for step‑by‑step instructions, but the quick‑start is:
 ```bash
-# Clone repository
-git clone https://github.com/syedisrarullahtanveer/DermaAI.git
+# Clone the repo
+git clone https://github.com/your-org/DermaAI.git
 cd DermaAI
 
-# Create virtual environment
+# Backend (Python)
 python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-
-# Install dependencies
+venv\Scripts\activate  # Windows
 pip install -r requirements.txt
+uvicorn backend.main:app --reload
+
+# Frontend (Node)
+cd frontend
+npm install  # or pnpm install (requires network)
+npm run dev
 ```
 
-### 2. Verify Environment & Hardware
+## Dataset
+DermaAI was trained on the **ISIC 2018** dataset (7 diagnostic classes). Details on data acquisition, preprocessing, and licensing are documented in [Dataset Documentation](docs/dataset.md).
 
-```bash
-python scripts/verify_environment.py
-```
+## Model Methodology
+The model architecture, training schedule, loss functions and explainability pipeline are described in [Model Methodology](docs/methodology.md).
 
-### 3. Model Training & Evaluation
+## Experimental Results
+Benchmark results, confusion matrices and class‑wise ROC curves are summarised in [Experimental Results](docs/results.md).
 
-```bash
-# Train baseline CNN
-python scripts/train.py --model baseline_cnn
+## API Documentation
+The FastAPI OpenAPI schema is available at `http://localhost:8000/docs`. A concise reference is kept in [API Documentation](docs/api.md).
 
-# Train Attention-augmented network
-python scripts/train.py --model attention_cbam
+## Screenshots
+![Dashboard](docs/screenshots/dashboard.png)
+![Grad‑CAM overlay](docs/screenshots/gradcam.png)
 
-# Evaluate model performance
-python scripts/evaluate.py --model attention_cbam --weights models/saved_models/best_model.keras
-```
+## Limitations & Ethical Considerations
+DermaAI is trained on a limited public dataset and may not generalise to all skin tones or rare conditions. See [Limitations & Ethics](docs/limitations.md) for a thorough discussion.
 
-### 4. Run Backend API
+## Deployment
+Guidelines for containerising and deploying to cloud platforms (Docker, Kubernetes, GCP) are in [Deployment Instructions](docs/deployment.md).
 
-```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-```
-Interactive API documentation will be available at: `http://localhost:8000/docs`.
+## Development & Testing
+- Run all tests with `pytest -q`.
+- Integration tests cover the full API‑frontend flow.
+- CI runs on every push (see `.github/workflows/ci.yml`).
 
----
+## Contributing
+Please read the [Contribution Guide](CONTRIBUTING.md) before submitting pull requests.
 
-## 📈 Development Progress
-
-Development follows a strict **400-Commit Incremental Roadmap**.
-Detailed commit logs, phase completion metrics, and task statuses are tracked in [`PROGRESS.md`](PROGRESS.md).
-
----
-
-## 📄 License & Attribution
-
-This project is licensed under the MIT License.
-Dataset acknowledgments: The International Skin Imaging Collaboration (ISIC) and the HAM10000 dataset (*ViDIR Group, Medical University of Vienna*).
+## License
+DermaAI is released under the MIT License. See `LICENSE` for details.

@@ -3,4 +3,4 @@
 from src.explainability.gradcam import GradCAMExplainer
 from src.explainability.visualizer import HeatmapVisualizer
 
-__all__ = ["GradCAMExplainer", "HeatmapVisualizer"]
+__all__ = ["GradCAMExplainer", "HeatmapVisualizer", "DermaExplainer", "ExplanationResult", "plot_prediction_panel"]
