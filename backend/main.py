@@ -18,6 +18,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+# Add Request ID middleware
+from backend.middleware.request_id import RequestIdMiddleware
+app.add_middleware(RequestIdMiddleware)
 
 # Configure Cross-Origin Resource Sharing (CORS)
 app.add_middleware(
