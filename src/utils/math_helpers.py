@@ -1,4 +1,4 @@
-// Utility mathematical functions used across the project.
+# Utility mathematical functions used across the project.
 
 import math
 from typing import Iterable, List

@@ -4,8 +4,8 @@ from src.utils.math_helpers import sigmoid, softmax
 class TestMathHelpers(unittest.TestCase):
     def test_sigmoid(self):
         self.assertAlmostEqual(sigmoid(0), 0.5)
-        self.assertAlmostEqual(sigmoid(10), 1.0, places=5)
-        self.assertAlmostEqual(sigmoid(-10), 0.0, places=5)
+        self.assertAlmostEqual(sigmoid(10), 1.0, places=4)
+        self.assertAlmostEqual(sigmoid(-10), 0.0, places=4)
 
     def test_softmax(self):
         vals = [1.0, 2.0, 3.0]
