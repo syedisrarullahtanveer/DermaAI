@@ -10,3 +10,7 @@ def helper_7(x: int) -> int:
     """Add 7 to x."""
     return x + 7
 
+def helper_8(x: int) -> int:
+    """Add 8 to x."""
+    return x + 8
+
