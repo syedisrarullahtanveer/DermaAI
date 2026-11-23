@@ -1,5 +1,5 @@
 import unittest
-from backend.schemas.clinical_metadata import ClinicalQueryMetadata
+from backend.clinical_metadata import ClinicalQueryMetadata
 
 class TestClinicalSchemas(unittest.TestCase):
     def test_validation(self):
