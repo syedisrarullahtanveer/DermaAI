@@ -3,7 +3,12 @@ import base64
 import io
 import os
 from pathlib import Path
-import pytest
+try:
+    import pytest
+except ImportError:
+    import unittest
+    raise unittest.SkipTest("pytest is not installed")
+
 import httpx
 from PIL import Image
 
