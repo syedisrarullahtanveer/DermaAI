@@ -6,7 +6,7 @@ class TestEarlyStoppingRestoration(unittest.TestCase):
     def test_patience_and_stopping(self):
         cb = EarlyStoppingWithRestoration(monitor="val_loss", patience=2, mode="min")
         model = tf.keras.Sequential([tf.keras.layers.Dense(2, input_shape=(2,))])
-        cb.model = model
+        cb.set_model(model)
         cb.on_train_begin()
         
         # Epoch 0: good
