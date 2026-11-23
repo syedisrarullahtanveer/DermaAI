@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dermaai-backend
+  labels:
+    app: dermaai
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dermaai
+  template:
+    metadata:
+      labels:
+        app: dermaai
+    spec:
+      containers:
+      - name: api
+        image: dermaai-backend:v2.0
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "500m"
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dermaai-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+  selector:
+    app: dermaai
